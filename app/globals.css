@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 210 20% 98%;
+  --foreground: 215 28% 17%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 28% 17%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 28% 17%;
+  --primary: 243 75% 59%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 199 89% 48%;
+  --accent-foreground: 0 0% 100%;
+  --muted: 210 20% 94%;
+  --muted-foreground: 215 16% 47%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 199 89% 48%;
+}
+
+.dark {
+  --background: 210 24% 9%;
+  --foreground: 210 20% 96%;
+  --card: 210 22% 13%;
+  --card-foreground: 210 20% 96%;
+  --popover: 210 22% 13%;
+  --popover-foreground: 210 20% 96%;
+  --primary: 243 75% 65%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 189 94% 43%;
+  --accent-foreground: 0 0% 100%;
+  --muted: 210 18% 18%;
+  --muted-foreground: 214 12% 72%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 210 18% 24%;
+  --input: 210 18% 24%;
+  --ring: 189 94% 43%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+html {
+  min-width: 320px;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.13), transparent 32rem),
+    linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(241, 245, 249, 0.96));
+  color: hsl(var(--foreground));
+  font-feature-settings: "cv11", "ss01";
+  text-rendering: optimizeLegibility;
+}
+
+.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(45, 212, 191, 0.12), transparent 32rem),
+    linear-gradient(135deg, rgba(7, 12, 18, 0.98), rgba(18, 24, 32, 0.98));
+}
+
+::selection {
+  background: hsl(var(--accent) / 0.24);
+}
