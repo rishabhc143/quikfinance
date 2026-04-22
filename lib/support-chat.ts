@@ -309,6 +309,7 @@ function buildTools() {
       parameters: {
         type: "object",
         properties: {},
+        required: [],
         additionalProperties: false
       },
       strict: true
@@ -321,10 +322,11 @@ function buildTools() {
         type: "object",
         properties: {
           invoice_number: {
-            type: "string",
-            description: "The invoice number mentioned by the customer, like INV-0004."
+            type: ["string", "null"],
+            description: "The invoice number mentioned by the customer, like INV-0004. Use null if the customer did not mention a specific invoice."
           }
         },
+        required: ["invoice_number"],
         additionalProperties: false
       },
       strict: true
