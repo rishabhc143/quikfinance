@@ -55,7 +55,7 @@ export async function getCustomerPortalPayload(token: string) {
 
   const admin = createSupabaseAdminClient();
   const [{ data: organization }, { data: customer }, { data: invoices }, { data: paymentLinks }] = await Promise.all([
-    admin.from("organizations").select("name, legal_name, base_currency").eq("id", portal.org_id).single(),
+    admin.from("organizations").select("name, legal_name, base_currency, preferred_language").eq("id", portal.org_id).single(),
     admin.from("contacts").select("id, display_name, email, phone, tax_id").eq("org_id", portal.org_id).eq("id", portal.contact_id).single(),
     admin
       .from("invoices")

@@ -15,6 +15,8 @@ export function getPublicEnv() {
 export function getServerEnv() {
   return {
     ...getPublicEnv(),
+    openaiApiKey: process.env.OPENAI_API_KEY ?? "",
+    openaiSupportModel: process.env.OPENAI_SUPPORT_MODEL ?? "gpt-5-mini",
     resendApiKey: process.env.RESEND_API_KEY ?? "",
     supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
     razorpayKeyId: process.env.RAZORPAY_KEY_ID ?? "",

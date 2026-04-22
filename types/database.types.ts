@@ -410,6 +410,46 @@ export type PortalCommentRow = {
   created_at: string;
 };
 
+export type SupportConversationRow = {
+  id: string;
+  org_id: string;
+  portal_link_id: string;
+  contact_id: string | null;
+  title: string | null;
+  status: string;
+  last_message_at: string;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export type SupportMessageRow = {
+  id: string;
+  org_id: string;
+  conversation_id: string;
+  role: "user" | "assistant" | "system";
+  body: string;
+  metadata: Json;
+  created_at: string;
+};
+
+export type SupportTicketRow = {
+  id: string;
+  org_id: string;
+  portal_link_id: string;
+  conversation_id: string | null;
+  contact_id: string | null;
+  ticket_number: string;
+  subject: string;
+  summary: string;
+  priority: string;
+  status: string;
+  requested_by_name: string | null;
+  requested_by_email: string | null;
+  source: string;
+  created_at: string;
+  updated_at: string | null;
+};
+
 type InsertOf<T extends Record<string, unknown>> = Partial<T> & Record<string, unknown>;
 type UpdateOf<T extends Record<string, unknown>> = Partial<T> & Record<string, unknown>;
 
@@ -443,6 +483,9 @@ export type Database = {
       audit_logs: TableShape<AuditLogRow, InsertOf<AuditLogRow>, UpdateOf<AuditLogRow>>;
       portal_links: TableShape<PortalLinkRow, InsertOf<PortalLinkRow>, UpdateOf<PortalLinkRow>>;
       portal_comments: TableShape<PortalCommentRow, InsertOf<PortalCommentRow>, UpdateOf<PortalCommentRow>>;
+      support_conversations: TableShape<SupportConversationRow, InsertOf<SupportConversationRow>, UpdateOf<SupportConversationRow>>;
+      support_messages: TableShape<SupportMessageRow, InsertOf<SupportMessageRow>, UpdateOf<SupportMessageRow>>;
+      support_tickets: TableShape<SupportTicketRow, InsertOf<SupportTicketRow>, UpdateOf<SupportTicketRow>>;
       quotations: TableShape<QuotationRow, InsertOf<QuotationRow>, UpdateOf<QuotationRow>>;
       sales_orders: TableShape<SalesOrderRow, InsertOf<SalesOrderRow>, UpdateOf<SalesOrderRow>>;
       purchase_orders: TableShape<PurchaseOrderRow, InsertOf<PurchaseOrderRow>, UpdateOf<PurchaseOrderRow>>;

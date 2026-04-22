@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PortalComments } from "@/components/portals/PortalComments";
 import { PortalShell } from "@/components/portals/PortalShell";
+import { SupportChat } from "@/components/portals/SupportChat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCustomerPortalPayload } from "@/lib/portals";
 import { formatMoney } from "@/lib/utils/currency";
@@ -70,12 +71,15 @@ export default async function CustomerPortalPage({ params }: { params: { token: 
             ))}
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
-          <CardContent>
-            <PortalComments token={params.token} />
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <SupportChat token={params.token} customerName={payload.customer?.display_name ?? "Customer"} />
+          <Card>
+            <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+            <CardContent>
+              <PortalComments token={params.token} />
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </PortalShell>
   );
