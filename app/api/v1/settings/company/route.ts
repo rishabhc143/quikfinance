@@ -18,7 +18,44 @@ const companySchema = z.object({
   timezone: z.string().trim().default("Asia/Kolkata")
 });
 
+async function updateCompany(orgId: string, payload: Partial<z.infer<typeof companySchema>>) {
+  const auth = await requireApiContext();
+  if (!auth.ok) {
+    return { auth };
+  }
+
+  const { data, error } = await auth.context.supabase
+    .from("organizations")
+    .update({
+      ...payload,
+      tax_id: payload.gstin ?? payload.tax_id ?? undefined
+    })
+    .eq("id", orgId)
+    .select("*")
+    .single();
+
+  if (error) {
+    return { auth, error };
+  }
+
+  return { auth, data };
+}
+
 export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const auth = await requireApiContext();
+  if (!auth.ok) {
+    return fail(auth.status, { code: auth.code, message: auth.message });
+  }
+
+  const { data, error } = await auth.context.supabase.from("organizations").select("*").eq("id", auth.context.orgId).single();
+  if (error || !data) {
+    return fail(404, { code: "NOT_FOUND", message: "Company profile was not found." });
+  }
+
+  return ok(data);
+}
 
 export async function PUT(request: NextRequest) {
   const auth = await requireApiContext();
@@ -31,21 +68,31 @@ export async function PUT(request: NextRequest) {
     return fail(422, { code: "VALIDATION_FAILED", message: "The company profile is invalid.", details: parsed.error.flatten() });
   }
 
-  const { data, error } = await auth.context.supabase
-    .from("organizations")
-    .update({
-      ...parsed.data,
-      tax_id: parsed.data.gstin ?? parsed.data.tax_id ?? null
-    })
-    .eq("id", auth.context.orgId)
-    .select("*")
-    .single();
-
-  if (error) {
-    return fail(400, { code: "UPDATE_FAILED", message: error.message });
+  const updated = await updateCompany(auth.context.orgId, parsed.data);
+  if ("error" in updated && updated.error) {
+    return fail(400, { code: "UPDATE_FAILED", message: updated.error.message });
   }
 
-  return ok(data);
+  return ok(updated.data);
 }
 
 export const POST = PUT;
+
+export async function PATCH(request: NextRequest) {
+  const auth = await requireApiContext();
+  if (!auth.ok) {
+    return fail(auth.status, { code: auth.code, message: auth.message });
+  }
+
+  const parsed = companySchema.partial().safeParse(await request.json());
+  if (!parsed.success) {
+    return fail(422, { code: "VALIDATION_FAILED", message: "The company profile patch is invalid.", details: parsed.error.flatten() });
+  }
+
+  const updated = await updateCompany(auth.context.orgId, parsed.data);
+  if ("error" in updated && updated.error) {
+    return fail(400, { code: "UPDATE_FAILED", message: updated.error.message });
+  }
+
+  return ok(updated.data);
+}

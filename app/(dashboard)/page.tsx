@@ -7,23 +7,25 @@ import { ExpensesChart } from "@/components/dashboard/ExpensesChart";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n";
 import { useDashboard } from "@/lib/hooks/useDashboard";
 
 export default function DashboardPage() {
+  const { t } = useI18n();
   const { data } = useDashboard();
 
   return (
     <div className="space-y-6 animate-fade-up">
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Revenue, cash, receivables, payables, and transaction activity.</p>
+          <h1 className="text-3xl font-bold">{t("dashboard.title", "Dashboard")}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t("dashboard.description", "Revenue, cash, receivables, payables, and transaction activity.")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild><Link href="/invoices/new">New Invoice</Link></Button>
-          <Button asChild variant="secondary"><Link href="/payments/received">Record Payment</Link></Button>
-          <Button asChild variant="secondary"><Link href="/expenses/new">Add Expense</Link></Button>
-          <Button asChild variant="secondary"><Link href="/bills/new">New Bill</Link></Button>
+          <Button asChild><Link href="/invoices/new">{t("dashboard.newInvoice", "New Invoice")}</Link></Button>
+          <Button asChild variant="secondary"><Link href="/payments/received">{t("dashboard.recordPayment", "Record Payment")}</Link></Button>
+          <Button asChild variant="secondary"><Link href="/expenses/new">{t("dashboard.addExpense", "Add Expense")}</Link></Button>
+          <Button asChild variant="secondary"><Link href="/bills/new">{t("dashboard.newBill", "New Bill")}</Link></Button>
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

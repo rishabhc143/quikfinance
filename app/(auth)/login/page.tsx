@@ -8,10 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useI18n } from "@/lib/i18n";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [googleEnabled, setGoogleEnabled] = useState<boolean | null>(null);
@@ -46,7 +48,7 @@ export default function LoginPage() {
     try {
       return createSupabaseBrowserClient();
     } catch {
-      toast.error("Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local.");
+      toast.error(t("auth.supabaseMissing", "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local."));
       return null;
     }
   };
@@ -68,7 +70,7 @@ export default function LoginPage() {
 
   const google = async () => {
     if (googleEnabled === false) {
-      toast.error("Google sign-in is not enabled in Supabase yet. Enable Authentication -> Providers -> Google.");
+      toast.error(t("auth.googleDisabled", "Google sign-in not enabled"));
       return;
     }
 
@@ -82,26 +84,26 @@ export default function LoginPage() {
   return (
     <Card className="shadow-soft">
       <CardHeader>
-        <CardTitle>Welcome back</CardTitle>
-        <CardDescription>Sign in to continue managing your books.</CardDescription>
+        <CardTitle>{t("auth.loginTitle", "Welcome back")}</CardTitle>
+        <CardDescription>{t("auth.loginDescription", "Sign in to continue managing your books.")}</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={login} className="space-y-4">
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t("auth.email", "Email")}</Label>
             <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required className="mt-2" />
           </div>
           <div>
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("auth.password", "Password")}</Label>
             <Input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required className="mt-2" />
           </div>
-          <Button type="submit" className="w-full">Sign in</Button>
+          <Button type="submit" className="w-full">{t("auth.signIn", "Sign in")}</Button>
           <Button type="button" variant="secondary" onClick={google} className="w-full">
-            {googleEnabled === false ? "Google sign-in not enabled" : "Continue with Google"}
+            {googleEnabled === false ? t("auth.googleDisabled", "Google sign-in not enabled") : t("auth.continueGoogle", "Continue with Google")}
           </Button>
         </form>
         <p className="mt-4 text-center text-sm text-muted-foreground">
-          New here? <Link href="/register" className="font-semibold text-primary">Create an account</Link>
+          {t("auth.newHere", "New here?")} <Link href="/register" className="font-semibold text-primary">{t("auth.createAccount", "Create an account")}</Link>
         </p>
       </CardContent>
     </Card>

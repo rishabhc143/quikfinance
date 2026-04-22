@@ -3,7 +3,7 @@ import type { CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getPublicEnv } from "@/lib/env";
 
-const publicPaths = ["/login", "/register", "/auth/callback"];
+const publicPaths = ["/login", "/register", "/auth/callback", "/portal", "/api/public"];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });

@@ -140,7 +140,8 @@ export const navigationGroups: { label: string; items: NavItem[] }[] = [
     items: [
       { title: "Company", href: "/settings", icon: Settings },
       { title: "Taxes", href: "/settings/taxes", icon: Tags },
-      { title: "Currencies", href: "/settings/currencies", icon: Banknote }
+      { title: "Currencies", href: "/settings/currencies", icon: Banknote },
+      { title: "Portals", href: "/settings/portals", icon: Webhook }
     ]
   }
 ];

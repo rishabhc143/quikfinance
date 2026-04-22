@@ -32,6 +32,15 @@ type PaymentLinkData = {
     amount_refunded: number;
     callback_url: string | null;
   } | null;
+  share: {
+    pdfUrl: string;
+    whatsappUrl: string;
+    upiUri: string | null;
+    paymentUrl: string | null;
+    customerPortalUrl: string | null;
+    einvoice: { irn: string; ackNumber: string; ackDate: string };
+    taxBreakup: { cgst: number; sgst: number; igst: number };
+  } | null;
   configured: boolean;
   webhook_url: string;
 };
@@ -189,6 +198,50 @@ export function InvoicePaymentLinkWorkspace({ invoiceId }: { invoiceId: string }
           )}
         </CardContent>
       </Card>
+      {data?.share ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Share & e-invoice</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-3 text-sm">
+              <Button asChild variant="secondary">
+                <Link href={data.share.pdfUrl} target="_blank">Download PDF</Link>
+              </Button>
+              <Button asChild variant="secondary">
+                <Link href={data.share.whatsappUrl} target="_blank">Share on WhatsApp</Link>
+              </Button>
+              {data.share.customerPortalUrl ? (
+                <Button asChild variant="secondary">
+                  <Link href={data.share.customerPortalUrl} target="_blank">Open customer portal</Link>
+                </Button>
+              ) : null}
+              {data.share.upiUri ? (
+                <div className="rounded-md border bg-muted/40 p-3 text-xs break-all">
+                  <p className="font-semibold">UPI intent</p>
+                  <p className="mt-1 text-muted-foreground">{data.share.upiUri}</p>
+                </div>
+              ) : null}
+            </div>
+            <div className="space-y-3 text-sm">
+              <div className="rounded-md border bg-muted/40 p-3">
+                <p className="font-semibold">GST breakup</p>
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center justify-between"><span>CGST</span><span>{formatMoney(data.share.taxBreakup.cgst)}</span></div>
+                  <div className="flex items-center justify-between"><span>SGST</span><span>{formatMoney(data.share.taxBreakup.sgst)}</span></div>
+                  <div className="flex items-center justify-between"><span>IGST</span><span>{formatMoney(data.share.taxBreakup.igst)}</span></div>
+                </div>
+              </div>
+              <div className="rounded-md border bg-muted/40 p-3 text-xs">
+                <p className="font-semibold">E-invoice fields</p>
+                <p className="mt-2">IRN: {data.share.einvoice.irn}</p>
+                <p>Ack No: {data.share.einvoice.ackNumber}</p>
+                <p>Ack Date: {data.share.einvoice.ackDate}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

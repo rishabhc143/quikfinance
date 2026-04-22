@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CheckboxCell } from "@/components/shared/Selection";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { useI18n } from "@/lib/i18n";
 import { formatMoney } from "@/lib/utils/currency";
 import type { DataColumn, TableRow, TableValue } from "@/lib/modules";
 import { cn } from "@/lib/utils/cn";
@@ -39,6 +40,7 @@ function csvEscape(value: TableValue) {
 }
 
 export function DataTable({ columns, rows, title }: { columns: DataColumn[]; rows: TableRow[]; title: string }) {
+  const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState(columns[0]?.key ?? "id");
   const [direction, setDirection] = useState<"asc" | "desc">("asc");
@@ -101,13 +103,13 @@ export function DataTable({ columns, rows, title }: { columns: DataColumn[]; row
           >
             {[10, 25, 50].map((size) => (
               <option key={size} value={size}>
-                {size} rows
+                {t("common.rows", "{count} rows", { count: size })}
               </option>
             ))}
           </select>
           <Button variant="secondary" onClick={exportCsv}>
             <Download className="mr-2 h-4 w-4" />
-            CSV
+            {t("common.csv", "CSV")}
           </Button>
           {columns.length > 4 ? (
             <Button
@@ -115,12 +117,12 @@ export function DataTable({ columns, rows, title }: { columns: DataColumn[]; row
               onClick={() => setHiddenColumns((current) => (current.includes(columns.at(-1)?.key ?? "") ? [] : [columns.at(-1)?.key ?? ""]))}
             >
               <EyeOff className="mr-2 h-4 w-4" />
-              Columns
+              {t("common.columns", "Columns")}
             </Button>
           ) : null}
         </div>
       </div>
-      {selected.length > 0 ? <div className="border-b bg-muted/60 px-4 py-2 text-sm font-medium">{selected.length} selected for bulk actions</div> : null}
+      {selected.length > 0 ? <div className="border-b bg-muted/60 px-4 py-2 text-sm font-medium">{t("common.selectedBulk", "{count} selected for bulk actions", { count: selected.length })}</div> : null}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px] table-fixed text-sm">
           <thead className="bg-muted/60 text-xs uppercase text-muted-foreground">
@@ -167,14 +169,14 @@ export function DataTable({ columns, rows, title }: { columns: DataColumn[]; row
       </div>
       <div className="flex items-center justify-between border-t p-4 text-sm text-muted-foreground">
         <span>
-          Page {page} of {totalPages}
+          {t("common.pageOf", "Page {page} of {total}", { page, total: totalPages })}
         </span>
         <div className="flex gap-2">
           <Button variant="secondary" disabled={page <= 1} onClick={() => setPage((current) => Math.max(current - 1, 1))}>
-            Previous
+            {t("common.previous", "Previous")}
           </Button>
           <Button variant="secondary" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(current + 1, totalPages))}>
-            Next
+            {t("common.next", "Next")}
           </Button>
         </div>
       </div>

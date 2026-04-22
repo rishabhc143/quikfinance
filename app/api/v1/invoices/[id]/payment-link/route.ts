@@ -1,5 +1,6 @@
 import { requireApiContext } from "@/lib/api/auth";
 import { errorMessage, fail, ok } from "@/lib/api/responses";
+import { buildInvoiceShareData } from "@/lib/invoice-share";
 import { createRazorpayPaymentLink, cancelRazorpayPaymentLink, getRazorpayWebhookUrl, isRazorpayConfigured } from "@/lib/razorpay";
 import { paymentLinkCreateSchema } from "@/lib/validations/automation.schema";
 
@@ -47,6 +48,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       .maybeSingle()
   ]);
 
+  const share = await buildInvoiceShareData(auth.context, params.id).catch(() => null);
+
   return ok({
     invoice: {
       ...invoice,
@@ -55,6 +58,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       customer_phone: contact?.phone ?? null
     },
     payment_link: paymentLink,
+    share,
     configured: isRazorpayConfigured(),
     webhook_url: getRazorpayWebhookUrl()
   });

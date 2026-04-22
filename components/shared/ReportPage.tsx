@@ -7,10 +7,13 @@ import { DataTable } from "@/components/shared/DataTable";
 import { DateRangePicker } from "@/components/shared/DateRangePicker";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { ReportExportButton } from "@/components/reports/ReportExportButton";
+import { translateReportMeta, useI18n } from "@/lib/i18n";
 import type { ReportConfig } from "@/lib/reports";
 import { formatMoney } from "@/lib/utils/currency";
 
 export function ReportPage({ config }: { config: ReportConfig }) {
+  const { locale } = useI18n();
+  const meta = translateReportMeta(locale, config.key, { title: config.title, description: config.description });
   const [range, setRange] = useState({ from: "2026-01-01", to: "2026-04-20" });
   const { data } = useQuery({
     queryKey: ["report", config.key, range],
@@ -28,7 +31,7 @@ export function ReportPage({ config }: { config: ReportConfig }) {
 
   return (
     <div className="space-y-6 animate-fade-up">
-      <PageHeader title={config.title} description={config.description} />
+      <PageHeader title={meta.title} description={meta.description} />
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 md:flex-row md:items-center md:justify-between">
         <DateRangePicker from={range.from} to={range.to} onChange={setRange} />
         <div className="flex gap-2">
@@ -48,7 +51,7 @@ export function ReportPage({ config }: { config: ReportConfig }) {
           </Card>
         ))}
       </div>
-      <DataTable columns={data.columns} rows={data.rows} title={data.title} />
+      <DataTable columns={data.columns} rows={data.rows} title={meta.title} />
     </div>
   );
 }

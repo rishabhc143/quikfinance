@@ -383,6 +383,33 @@ export type GatewayEventRow = {
   created_at: string;
 };
 
+export type PortalLinkRow = {
+  id: string;
+  org_id: string;
+  portal_type: "customer" | "ca";
+  contact_id: string | null;
+  display_name: string | null;
+  email: string | null;
+  access_token: string;
+  permissions: Json;
+  expires_at: string | null;
+  last_accessed_at: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export type PortalCommentRow = {
+  id: string;
+  org_id: string;
+  portal_link_id: string;
+  author_name: string;
+  author_email: string | null;
+  body: string;
+  created_at: string;
+};
+
 type InsertOf<T extends Record<string, unknown>> = Partial<T> & Record<string, unknown>;
 type UpdateOf<T extends Record<string, unknown>> = Partial<T> & Record<string, unknown>;
 
@@ -414,6 +441,8 @@ export type Database = {
       invoice_payment_links: TableShape<InvoicePaymentLinkRow, InsertOf<InvoicePaymentLinkRow>, UpdateOf<InvoicePaymentLinkRow>>;
       gateway_events: TableShape<GatewayEventRow, InsertOf<GatewayEventRow>, UpdateOf<GatewayEventRow>>;
       audit_logs: TableShape<AuditLogRow, InsertOf<AuditLogRow>, UpdateOf<AuditLogRow>>;
+      portal_links: TableShape<PortalLinkRow, InsertOf<PortalLinkRow>, UpdateOf<PortalLinkRow>>;
+      portal_comments: TableShape<PortalCommentRow, InsertOf<PortalCommentRow>, UpdateOf<PortalCommentRow>>;
       quotations: TableShape<QuotationRow, InsertOf<QuotationRow>, UpdateOf<QuotationRow>>;
       sales_orders: TableShape<SalesOrderRow, InsertOf<SalesOrderRow>, UpdateOf<SalesOrderRow>>;
       purchase_orders: TableShape<PurchaseOrderRow, InsertOf<PurchaseOrderRow>, UpdateOf<PurchaseOrderRow>>;
