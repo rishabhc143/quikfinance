@@ -6,6 +6,7 @@ import {
   Boxes,
   Briefcase,
   Building2,
+  Cable,
   Calculator,
   ChartNoAxesCombined,
   CircleDollarSign,
@@ -17,9 +18,13 @@ import {
   Package,
   Receipt,
   Repeat2,
+  ScanText,
   Settings,
+  ShieldCheck,
   Tags,
+  Upload,
   Users,
+  Webhook,
   WalletCards
 } from "lucide-react";
 import { addDaysISO, todayISO } from "@/lib/utils/dates";
@@ -70,7 +75,10 @@ export const navigationGroups: { label: string; items: NavItem[] }[] = [
     label: "Sales",
     items: [
       { title: "Customers", href: "/customers", icon: Users },
+      { title: "Quotations", href: "/quotations", icon: FileText },
+      { title: "Sales Orders", href: "/sales-orders", icon: ClipboardList },
       { title: "Invoices", href: "/invoices", icon: FileText },
+      { title: "Credit Notes", href: "/credit-notes", icon: Repeat2 },
       { title: "Payments Received", href: "/payments/received", icon: CircleDollarSign }
     ]
   },
@@ -78,7 +86,9 @@ export const navigationGroups: { label: string; items: NavItem[] }[] = [
     label: "Purchases",
     items: [
       { title: "Vendors", href: "/vendors", icon: Building2 },
+      { title: "Purchase Orders", href: "/purchase-orders", icon: ClipboardList },
       { title: "Bills", href: "/bills", icon: ClipboardList },
+      { title: "Vendor Credits", href: "/vendor-credits", icon: Repeat2 },
       { title: "Expenses", href: "/expenses", icon: Receipt },
       { title: "Payments Made", href: "/payments/made", icon: CreditCard }
     ]
@@ -95,9 +105,15 @@ export const navigationGroups: { label: string; items: NavItem[] }[] = [
     label: "Reports",
     items: [
       { title: "Reports", href: "/reports", icon: FileBarChart },
+      { title: "Trial Balance", href: "/reports/trial-balance", icon: BookOpen },
       { title: "P&L", href: "/reports/profit-loss", icon: BarChart3 },
       { title: "Balance Sheet", href: "/reports/balance-sheet", icon: ChartNoAxesCombined },
-      { title: "Aging", href: "/reports/aging", icon: Repeat2 }
+      { title: "Aging", href: "/reports/aging", icon: Repeat2 },
+      { title: "GSTR-1", href: "/reports/gstr-1", icon: Receipt },
+      { title: "GSTR-3B", href: "/reports/gstr-3b", icon: Tags },
+      { title: "GST Summary", href: "/reports/gst-summary", icon: Receipt },
+      { title: "GST Parity", href: "/reports/gst-parity", icon: Tags },
+      { title: "Outstanding", href: "/reports/outstanding", icon: ClipboardList }
     ]
   },
   {
@@ -106,7 +122,17 @@ export const navigationGroups: { label: string; items: NavItem[] }[] = [
       { title: "Fixed Assets", href: "/fixed-assets", icon: Briefcase },
       { title: "Inventory", href: "/inventory", icon: Package },
       { title: "Projects", href: "/projects", icon: Boxes },
+      { title: "Time Tracking", href: "/time-tracking", icon: Activity },
       { title: "Budgets", href: "/budgets", icon: WalletCards }
+    ]
+  },
+  {
+    label: "Automation",
+    items: [
+      { title: "Imports", href: "/imports", icon: Upload },
+      { title: "OCR Bills", href: "/ocr-bills", icon: ScanText },
+      { title: "Period Locks", href: "/period-locks", icon: ShieldCheck },
+      { title: "Integrations", href: "/integrations", icon: Cable }
     ]
   },
   {
@@ -128,8 +154,12 @@ const contactFields: FormField[] = [
   { name: "company_name", label: "Company", type: "text" },
   { name: "email", label: "Email", type: "email" },
   { name: "phone", label: "Phone", type: "text" },
-  { name: "currency", label: "Currency", type: "select", options: [{ label: "USD", value: "USD" }, { label: "INR", value: "INR" }, { label: "EUR", value: "EUR" }] },
+  { name: "tax_id", label: "GSTIN", type: "text" },
+  { name: "pan", label: "PAN", type: "text" },
+  { name: "state_code", label: "State code", type: "text" },
+  { name: "currency", label: "Currency", type: "select", options: [{ label: "INR", value: "INR" }, { label: "USD", value: "USD" }, { label: "EUR", value: "EUR" }] },
   { name: "payment_terms", label: "Payment terms", type: "number" },
+  { name: "opening_balance", label: "Opening balance", type: "money" },
   { name: "notes", label: "Notes", type: "textarea" }
 ];
 
@@ -140,9 +170,12 @@ const documentFields: FormField[] = [
   { name: "subtotal", label: "Subtotal", type: "money", required: true },
   { name: "tax_total", label: "Tax", type: "money" },
   { name: "discount_total", label: "Discount", type: "money" },
+  { name: "place_of_supply", label: "Place of supply", type: "text" },
   { name: "total", label: "Total", type: "money", required: true },
   { name: "notes", label: "Notes", type: "textarea" }
 ];
+
+const invoiceDocumentFields: FormField[] = [...documentFields, { name: "round_off", label: "Round off", type: "money" }];
 
 export const moduleConfigs: Record<string, ModuleConfig> = {
   customers: {
@@ -209,7 +242,63 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
       { id: "inv-2", invoice_number: "INV-0002", customer: "Greenline Foods", due_date: today, total: money(6420), balance_due: money(6420), status: "sent" },
       { id: "inv-3", invoice_number: "INV-0003", customer: "Aarav Textiles", due_date: "2026-04-01", total: money(232000), balance_due: money(232000), status: "overdue" }
     ],
-    formFields: documentFields
+    formFields: invoiceDocumentFields
+  },
+  quotations: {
+    key: "quotations",
+    title: "Quotations",
+    entityName: "quotation",
+    description: "Prepare estimates, expiry-based proposals, and convert-ready sales quotes.",
+    apiPath: "/api/v1/quotations",
+    newPath: "/quotations/new",
+    primaryAction: "New quotation",
+    columns: [
+      { key: "quotation_number", label: "Quotation" },
+      { key: "contact_id", label: "Customer" },
+      { key: "issue_date", label: "Date", kind: "date" },
+      { key: "due_date", label: "Expiry", kind: "date" },
+      { key: "total", label: "Total", kind: "money", align: "right" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [{ id: "qt-1", quotation_number: "QT-0001", contact_id: "cust-1", issue_date: today, due_date: dueSoon, total: money(48000), status: "sent" }],
+    formFields: [
+      { name: "contact_id", label: "Customer ID", type: "text", required: true },
+      { name: "issue_date", label: "Quotation date", type: "date", required: true },
+      { name: "due_date", label: "Expiry date", type: "date", required: true },
+      { name: "subtotal", label: "Subtotal", type: "money", required: true },
+      { name: "tax_total", label: "Tax", type: "money" },
+      { name: "total", label: "Total", type: "money", required: true },
+      { name: "status", label: "Status", type: "select", options: [{ label: "Draft", value: "draft" }, { label: "Sent", value: "sent" }, { label: "Accepted", value: "accepted" }] },
+      { name: "notes", label: "Notes", type: "textarea" }
+    ]
+  },
+  "sales-orders": {
+    key: "sales-orders",
+    title: "Sales Orders",
+    entityName: "sales order",
+    description: "Track committed sales, fulfillment staging, and order conversion into invoices.",
+    apiPath: "/api/v1/sales-orders",
+    newPath: "/sales-orders/new",
+    primaryAction: "New sales order",
+    columns: [
+      { key: "sales_order_number", label: "Order" },
+      { key: "contact_id", label: "Customer" },
+      { key: "issue_date", label: "Date", kind: "date" },
+      { key: "due_date", label: "Expected", kind: "date" },
+      { key: "total", label: "Total", kind: "money", align: "right" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [{ id: "so-1", sales_order_number: "SO-0001", contact_id: "cust-2", issue_date: today, due_date: dueSoon, total: money(64200), status: "confirmed" }],
+    formFields: [
+      { name: "contact_id", label: "Customer ID", type: "text", required: true },
+      { name: "issue_date", label: "Order date", type: "date", required: true },
+      { name: "due_date", label: "Expected delivery", type: "date", required: true },
+      { name: "subtotal", label: "Subtotal", type: "money", required: true },
+      { name: "tax_total", label: "Tax", type: "money" },
+      { name: "total", label: "Total", type: "money", required: true },
+      { name: "status", label: "Status", type: "select", options: [{ label: "Draft", value: "draft" }, { label: "Confirmed", value: "confirmed" }, { label: "Fulfilled", value: "fulfilled" }] },
+      { name: "notes", label: "Notes", type: "textarea" }
+    ]
   },
   bills: {
     key: "bills",
@@ -232,6 +321,90 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
       { id: "bill-2", bill_number: "BILL-0002", vendor: "LedgerWorks Advisory", due_date: today, total: money(4200), balance_due: money(2100), status: "partial" }
     ],
     formFields: documentFields
+  },
+  "purchase-orders": {
+    key: "purchase-orders",
+    title: "Purchase Orders",
+    entityName: "purchase order",
+    description: "Control vendor commitments, approvals, and expected receipt schedules.",
+    apiPath: "/api/v1/purchase-orders",
+    newPath: "/purchase-orders/new",
+    primaryAction: "New purchase order",
+    columns: [
+      { key: "purchase_order_number", label: "PO" },
+      { key: "contact_id", label: "Vendor" },
+      { key: "issue_date", label: "Date", kind: "date" },
+      { key: "due_date", label: "Expected", kind: "date" },
+      { key: "total", label: "Total", kind: "money", align: "right" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [{ id: "po-1", purchase_order_number: "PO-0001", contact_id: "ven-1", issue_date: today, due_date: dueSoon, total: money(18500), status: "approved" }],
+    formFields: [
+      { name: "contact_id", label: "Vendor ID", type: "text", required: true },
+      { name: "issue_date", label: "PO date", type: "date", required: true },
+      { name: "due_date", label: "Expected date", type: "date", required: true },
+      { name: "subtotal", label: "Subtotal", type: "money", required: true },
+      { name: "tax_total", label: "Tax", type: "money" },
+      { name: "total", label: "Total", type: "money", required: true },
+      { name: "status", label: "Status", type: "select", options: [{ label: "Draft", value: "draft" }, { label: "Approved", value: "approved" }, { label: "Received", value: "received" }] },
+      { name: "notes", label: "Notes", type: "textarea" }
+    ]
+  },
+  "credit-notes": {
+    key: "credit-notes",
+    title: "Credit Notes",
+    entityName: "credit note",
+    description: "Issue sales returns, reference original invoices, and reduce customer outstanding cleanly.",
+    apiPath: "/api/v1/credit-notes",
+    newPath: "/credit-notes/new",
+    primaryAction: "New credit note",
+    columns: [
+      { key: "credit_note_number", label: "Credit note" },
+      { key: "contact_id", label: "Customer" },
+      { key: "issue_date", label: "Date", kind: "date" },
+      { key: "total", label: "Amount", kind: "money", align: "right" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [{ id: "cn-1", credit_note_number: "CN-0001", contact_id: "cust-3", issue_date: today, total: money(5200), status: "issued" }],
+    formFields: [
+      { name: "contact_id", label: "Customer ID", type: "text", required: true },
+      { name: "invoice_id", label: "Original invoice ID", type: "text" },
+      { name: "issue_date", label: "Date", type: "date", required: true },
+      { name: "due_date", label: "Applies by", type: "date", required: true },
+      { name: "subtotal", label: "Subtotal", type: "money", required: true },
+      { name: "tax_total", label: "Tax", type: "money" },
+      { name: "total", label: "Total", type: "money", required: true },
+      { name: "status", label: "Status", type: "select", options: [{ label: "Draft", value: "draft" }, { label: "Issued", value: "issued" }, { label: "Applied", value: "applied" }] },
+      { name: "notes", label: "Reason", type: "textarea" }
+    ]
+  },
+  "vendor-credits": {
+    key: "vendor-credits",
+    title: "Vendor Credits",
+    entityName: "vendor credit",
+    description: "Capture supplier debit note equivalents and reduce AP balances after returns or disputes.",
+    apiPath: "/api/v1/vendor-credits",
+    newPath: "/vendor-credits/new",
+    primaryAction: "New vendor credit",
+    columns: [
+      { key: "vendor_credit_number", label: "Vendor credit" },
+      { key: "contact_id", label: "Vendor" },
+      { key: "issue_date", label: "Date", kind: "date" },
+      { key: "total", label: "Amount", kind: "money", align: "right" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [{ id: "vc-1", vendor_credit_number: "VC-0001", contact_id: "ven-2", issue_date: today, total: money(2400), status: "received" }],
+    formFields: [
+      { name: "contact_id", label: "Vendor ID", type: "text", required: true },
+      { name: "bill_id", label: "Related bill ID", type: "text" },
+      { name: "issue_date", label: "Date", type: "date", required: true },
+      { name: "due_date", label: "Applies by", type: "date", required: true },
+      { name: "subtotal", label: "Subtotal", type: "money", required: true },
+      { name: "tax_total", label: "Tax", type: "money" },
+      { name: "total", label: "Total", type: "money", required: true },
+      { name: "status", label: "Status", type: "select", options: [{ label: "Draft", value: "draft" }, { label: "Received", value: "received" }, { label: "Applied", value: "applied" }] },
+      { name: "notes", label: "Notes", type: "textarea" }
+    ]
   },
   "payments-received": {
     key: "payments-received",
@@ -363,6 +536,132 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     ],
     formFields: []
   },
+  imports: {
+    key: "imports",
+    title: "Imports",
+    entityName: "import job",
+    description: "Bring in Tally, Zoho Books, CSV, and bank statement exports with processing history.",
+    apiPath: "/api/v1/imports",
+    newPath: "/imports/new",
+    primaryAction: "New import",
+    columns: [
+      { key: "created_at", label: "Created", kind: "date" },
+      { key: "source_type", label: "Source" },
+      { key: "entity_type", label: "Entity" },
+      { key: "imported_rows", label: "Imported", kind: "number", align: "right" },
+      { key: "failed_rows", label: "Failed", kind: "number", align: "right" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [
+      { id: "imp-1", created_at: today, source_type: "tally", entity_type: "customers", imported_rows: 24, failed_rows: 0, status: "completed" },
+      { id: "imp-2", created_at: "2026-04-19", source_type: "bank_statement", entity_type: "bank_transactions", imported_rows: 38, failed_rows: 2, status: "completed" }
+    ],
+    formFields: [
+      {
+        name: "source_type",
+        label: "Source",
+        type: "select",
+        required: true,
+        options: [
+          { label: "CSV", value: "csv" },
+          { label: "Tally", value: "tally" },
+          { label: "Zoho Books", value: "zoho_books" },
+          { label: "Bank Statement", value: "bank_statement" }
+        ]
+      },
+      {
+        name: "entity_type",
+        label: "Entity",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Customers", value: "customers" },
+          { label: "Vendors", value: "vendors" },
+          { label: "Invoices", value: "invoices" },
+          { label: "Bills", value: "bills" },
+          { label: "Payments", value: "payments" },
+          { label: "Bank Transactions", value: "bank_transactions" }
+        ]
+      },
+      { name: "file_name", label: "File name", type: "text" },
+      { name: "bank_account_id", label: "Bank account ID", type: "text" },
+      { name: "payload_text", label: "CSV or JSON payload", type: "textarea", required: true },
+      { name: "notes", label: "Notes", type: "textarea" }
+    ]
+  },
+  "ocr-bills": {
+    key: "ocr-bills",
+    title: "OCR Bills",
+    entityName: "OCR document",
+    description: "Paste OCR output from supplier invoices, extract fields, and convert it into draft bills.",
+    apiPath: "/api/v1/ocr/documents",
+    newPath: "/ocr-bills/new",
+    primaryAction: "New OCR draft",
+    columns: [
+      { key: "created_at", label: "Created", kind: "date" },
+      { key: "source_name", label: "Source" },
+      { key: "document_type", label: "Type" },
+      { key: "vendor_name", label: "Vendor" },
+      { key: "total", label: "Total", kind: "money", align: "right" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [
+      { id: "ocr-1", created_at: today, source_name: "Metro April bill scan", document_type: "bill", vendor_name: "Metro Cloud Hosting", total: money(1180), status: "parsed" }
+    ],
+    formFields: [
+      {
+        name: "document_type",
+        label: "Document type",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Bill", value: "bill" },
+          { label: "Invoice", value: "invoice" }
+        ]
+      },
+      { name: "source_name", label: "Source name", type: "text", required: true },
+      { name: "source_text", label: "OCR text", type: "textarea", required: true },
+      { name: "notes", label: "Notes", type: "textarea" }
+    ]
+  },
+  "period-locks": {
+    key: "period-locks",
+    title: "Period Locks",
+    entityName: "period lock",
+    description: "Lock accounting periods after close to prevent back-dated edits across sales, purchases, banking, and journals.",
+    apiPath: "/api/v1/period-locks",
+    newPath: "/period-locks/new",
+    primaryAction: "Lock period",
+    columns: [
+      { key: "start_date", label: "Start", kind: "date" },
+      { key: "end_date", label: "End", kind: "date" },
+      { key: "lock_scope", label: "Scope" },
+      { key: "reason", label: "Reason" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [
+      { id: "lock-1", start_date: "2026-03-01", end_date: "2026-03-31", lock_scope: "all", reason: "March close", status: "active" }
+    ],
+    formFields: [
+      { name: "start_date", label: "Start date", type: "date", required: true },
+      { name: "end_date", label: "End date", type: "date", required: true },
+      {
+        name: "lock_scope",
+        label: "Scope",
+        type: "select",
+        required: true,
+        options: [
+          { label: "All", value: "all" },
+          { label: "Sales", value: "sales" },
+          { label: "Purchases", value: "purchases" },
+          { label: "Banking", value: "banking" },
+          { label: "Journals", value: "journals" }
+        ]
+      },
+      { name: "reason", label: "Reason", type: "textarea" },
+      { name: "is_active", label: "Active", type: "checkbox" }
+    ]
+  },
   budgets: {
     key: "budgets",
     title: "Budgets",
@@ -436,6 +735,33 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
       { id: "proj-1", name: "Northstar rollout", customer: "Northstar Labs", budget_amount: money(52000), profitability: money(18400), status: "active" }
     ],
     formFields: []
+  },
+  "time-tracking": {
+    key: "time-tracking",
+    title: "Time Tracking",
+    entityName: "time entry",
+    description: "Log project hours, mark billable work, and keep timesheet billing readiness visible.",
+    apiPath: "/api/v1/time-entries",
+    newPath: "/time-tracking/new",
+    primaryAction: "Log time",
+    columns: [
+      { key: "work_date", label: "Date", kind: "date" },
+      { key: "project_id", label: "Project" },
+      { key: "description", label: "Description" },
+      { key: "hours", label: "Hours", kind: "number", align: "right" },
+      { key: "rate", label: "Rate", kind: "money", align: "right" },
+      { key: "is_billable", label: "Billable", kind: "boolean", align: "center" }
+    ],
+    rows: [{ id: "time-1", work_date: today, project_id: "proj-1", description: "Discovery workshop and GST workflow mapping", hours: 6.5, rate: money(1800), is_billable: true }],
+    formFields: [
+      { name: "project_id", label: "Project ID", type: "text", required: true },
+      { name: "work_date", label: "Work date", type: "date", required: true },
+      { name: "hours", label: "Hours", type: "number", required: true },
+      { name: "rate", label: "Billable rate", type: "money" },
+      { name: "description", label: "Description", type: "textarea", required: true },
+      { name: "is_billable", label: "Billable", type: "checkbox" },
+      { name: "is_billed", label: "Already billed", type: "checkbox" }
+    ]
   },
   taxes: {
     key: "taxes",

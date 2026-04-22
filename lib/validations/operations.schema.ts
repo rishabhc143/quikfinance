@@ -6,7 +6,7 @@ export const paymentSchema = z.object({
   payment_type: z.enum(["received", "made"]),
   payment_date: z.coerce.date().transform((value) => value.toISOString().slice(0, 10)),
   amount: moneySchema,
-  currency: currencyCodeSchema.default("USD"),
+  currency: currencyCodeSchema.default("INR"),
   exchange_rate: z.coerce.number().positive().default(1),
   method: z.string().trim().min(2).max(80),
   reference: z.string().max(120).optional().nullable(),
@@ -21,7 +21,7 @@ export const expenseSchema = z.object({
   project_id: idSchema.optional().nullable(),
   amount: moneySchema,
   tax_amount: moneySchema.default(0),
-  currency: currencyCodeSchema.default("USD"),
+  currency: currencyCodeSchema.default("INR"),
   receipt_url: z.string().url().optional().nullable(),
   is_billable: z.boolean().default(false),
   description: z.string().trim().min(2).max(500),
@@ -42,7 +42,7 @@ export const bankAccountSchema = z.object({
   name: z.string().trim().min(2).max(160),
   institution_name: z.string().trim().max(160).optional().nullable(),
   account_number_last4: z.string().trim().max(4).optional().nullable(),
-  currency: currencyCodeSchema.default("USD"),
+  currency: currencyCodeSchema.default("INR"),
   current_balance: moneySchema.default(0),
   is_active: z.boolean().default(true)
 });

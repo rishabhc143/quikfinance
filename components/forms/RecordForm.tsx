@@ -30,14 +30,26 @@ function schemaForField(field: FormField) {
 }
 
 function defaultValue(field: FormField) {
-  if (field.name === "issue_date" || field.name === "expense_date" || field.name === "entry_date") {
+  if (field.name === "issue_date" || field.name === "expense_date" || field.name === "entry_date" || field.name === "work_date") {
     return todayISO();
   }
   if (field.name === "due_date") {
     return addDaysISO(30);
   }
-  if (field.name === "currency") {
-    return "USD";
+  if (field.name === "currency" || field.name === "base_currency") {
+    return "INR";
+  }
+  if (field.name === "timezone") {
+    return "Asia/Kolkata";
+  }
+  if (field.name === "preferred_language") {
+    return "en";
+  }
+  if (field.name === "fiscal_year_start") {
+    return "4";
+  }
+  if (field.name === "state_code") {
+    return "27";
   }
   if (field.type === "checkbox") {
     return false;

@@ -30,9 +30,13 @@ export type ContactRow = TenantRow & {
   phone: string | null;
   website: string | null;
   tax_id: string | null;
+  pan: string | null;
+  gst_treatment: string;
+  state_code: string | null;
   currency: string;
   payment_terms: number;
   credit_limit: number | null;
+  opening_balance: number;
   billing_address: Json;
   shipping_address: Json;
   notes: string | null;
@@ -56,10 +60,16 @@ export type DocumentRow = TenantRow & {
 
 export type InvoiceRow = DocumentRow & {
   invoice_number: string;
+  place_of_supply: string | null;
+  round_off: number;
+  terms: string | null;
+  template_type: string;
 };
 
 export type BillRow = DocumentRow & {
   bill_number: string;
+  place_of_supply: string | null;
+  tds_amount: number;
 };
 
 export type PaymentRow = TenantRow & {
@@ -107,6 +117,35 @@ export type BankAccountRow = TenantRow & {
   is_active: boolean;
 };
 
+export type BankTransactionRow = {
+  id: string;
+  org_id: string;
+  bank_account_id: string;
+  transaction_date: string;
+  description: string;
+  amount: number;
+  reference: string | null;
+  matched_journal_entry_id: string | null;
+  reconciliation_id: string | null;
+  status: string;
+  created_at: string;
+};
+
+export type ReconciliationRow = {
+  id: string;
+  org_id: string;
+  bank_account_id: string;
+  statement_start: string;
+  statement_end: string;
+  statement_balance: number;
+  book_balance: number;
+  difference: number;
+  status: string;
+  completed_by: string | null;
+  completed_at: string | null;
+  created_at: string;
+};
+
 export type ExpenseRow = TenantRow & {
   expense_date: string;
   vendor_id: string | null;
@@ -135,9 +174,74 @@ export type InventoryItemRow = TenantRow & {
   unit: string;
   sales_price: number;
   purchase_price: number;
+  hsn_sac_code: string | null;
+  gst_rate: number;
+  category_name: string | null;
+  barcode: string | null;
+  track_inventory: boolean;
   quantity_on_hand: number;
   reorder_point: number;
   is_active: boolean;
+};
+
+export type OrganizationRow = TenantRow & {
+  name: string;
+  legal_name: string | null;
+  tax_id: string | null;
+  gstin: string | null;
+  pan: string | null;
+  state_code: string | null;
+  preferred_language: string;
+  default_upi_id: string | null;
+  base_currency: string;
+  fiscal_year_start: number;
+  timezone: string;
+};
+
+export type CommercialDocumentRow = TenantRow & {
+  contact_id: string;
+  issue_date: string;
+  due_date: string;
+  subtotal: number;
+  tax_total: number;
+  total: number;
+  currency: string;
+  notes: string | null;
+  status: string;
+  created_by?: string | null;
+};
+
+export type QuotationRow = CommercialDocumentRow & {
+  quotation_number: string;
+};
+
+export type SalesOrderRow = CommercialDocumentRow & {
+  sales_order_number: string;
+};
+
+export type PurchaseOrderRow = CommercialDocumentRow & {
+  purchase_order_number: string;
+};
+
+export type CreditNoteRow = CommercialDocumentRow & {
+  invoice_id: string | null;
+  credit_note_number: string;
+};
+
+export type VendorCreditRow = CommercialDocumentRow & {
+  bill_id: string | null;
+  vendor_credit_number: string;
+};
+
+export type TimeEntryRow = TenantRow & {
+  project_id: string;
+  user_id: string | null;
+  work_date: string;
+  hours: number;
+  rate: number;
+  description: string;
+  is_billable: boolean;
+  is_billed: boolean;
 };
 
 export type FixedAssetRow = TenantRow & {
@@ -196,13 +300,96 @@ export type AuditLogRow = {
   created_at: string;
 };
 
+export type ImportJobRow = {
+  id: string;
+  org_id: string;
+  source_type: string;
+  entity_type: string;
+  file_name: string | null;
+  status: string;
+  bank_account_id: string | null;
+  raw_payload: string | null;
+  total_rows: number;
+  imported_rows: number;
+  failed_rows: number;
+  summary: Json;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export type PeriodLockRow = {
+  id: string;
+  org_id: string;
+  start_date: string;
+  end_date: string;
+  lock_scope: string;
+  reason: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export type OcrDocumentRow = {
+  id: string;
+  org_id: string;
+  document_type: string;
+  source_name: string;
+  source_text: string;
+  status: string;
+  linked_entity_id: string | null;
+  extracted_fields: Json;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export type InvoicePaymentLinkRow = {
+  id: string;
+  org_id: string;
+  invoice_id: string;
+  provider: string;
+  provider_link_id: string;
+  reference_id: string | null;
+  short_url: string | null;
+  status: string;
+  currency: string;
+  amount: number;
+  amount_paid: number;
+  amount_refunded: number;
+  callback_url: string | null;
+  latest_payment_id: string | null;
+  raw_response: Json;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export type GatewayEventRow = {
+  id: string;
+  org_id: string;
+  provider: string;
+  event_id: string;
+  event_type: string;
+  invoice_id: string | null;
+  provider_link_id: string | null;
+  provider_payment_id: string | null;
+  provider_refund_id: string | null;
+  payload: Json;
+  processed_at: string | null;
+  created_at: string;
+};
+
 type InsertOf<T extends Record<string, unknown>> = Partial<T> & Record<string, unknown>;
 type UpdateOf<T extends Record<string, unknown>> = Partial<T> & Record<string, unknown>;
 
 export type Database = {
   public: {
     Tables: {
-      organizations: TableShape<TenantRow & { name: string; base_currency: string }, InsertOf<TenantRow & { name: string; base_currency: string }>, UpdateOf<TenantRow & { name: string; base_currency: string }>>;
+      organizations: TableShape<OrganizationRow, InsertOf<OrganizationRow>, UpdateOf<OrganizationRow>>;
       profiles: TableShape<ProfileRow, InsertOf<ProfileRow>, UpdateOf<ProfileRow>>;
       contacts: TableShape<ContactRow, InsertOf<ContactRow>, UpdateOf<ContactRow>>;
       invoices: TableShape<InvoiceRow, InsertOf<InvoiceRow>, UpdateOf<InvoiceRow>>;
@@ -212,6 +399,8 @@ export type Database = {
       journal_entries: TableShape<JournalEntryRow, InsertOf<JournalEntryRow>, UpdateOf<JournalEntryRow>>;
       accounts: TableShape<AccountRow, InsertOf<AccountRow>, UpdateOf<AccountRow>>;
       bank_accounts: TableShape<BankAccountRow, InsertOf<BankAccountRow>, UpdateOf<BankAccountRow>>;
+      bank_transactions: TableShape<BankTransactionRow, InsertOf<BankTransactionRow>, UpdateOf<BankTransactionRow>>;
+      reconciliations: TableShape<ReconciliationRow, InsertOf<ReconciliationRow>, UpdateOf<ReconciliationRow>>;
       budgets: TableShape<BudgetRow, InsertOf<BudgetRow>, UpdateOf<BudgetRow>>;
       fixed_assets: TableShape<FixedAssetRow, InsertOf<FixedAssetRow>, UpdateOf<FixedAssetRow>>;
       items: TableShape<InventoryItemRow, InsertOf<InventoryItemRow>, UpdateOf<InventoryItemRow>>;
@@ -219,7 +408,18 @@ export type Database = {
       tax_rates: TableShape<TaxRateRow, InsertOf<TaxRateRow>, UpdateOf<TaxRateRow>>;
       currencies: TableShape<CurrencyRow, InsertOf<CurrencyRow>, UpdateOf<CurrencyRow>>;
       exchange_rates: TableShape<TenantRow & { from_currency: string; to_currency: string; rate: number; effective_date: string }, InsertOf<TenantRow & { from_currency: string; to_currency: string; rate: number; effective_date: string }>, UpdateOf<TenantRow & { from_currency: string; to_currency: string; rate: number; effective_date: string }>>;
+      import_jobs: TableShape<ImportJobRow, InsertOf<ImportJobRow>, UpdateOf<ImportJobRow>>;
+      period_locks: TableShape<PeriodLockRow, InsertOf<PeriodLockRow>, UpdateOf<PeriodLockRow>>;
+      ocr_documents: TableShape<OcrDocumentRow, InsertOf<OcrDocumentRow>, UpdateOf<OcrDocumentRow>>;
+      invoice_payment_links: TableShape<InvoicePaymentLinkRow, InsertOf<InvoicePaymentLinkRow>, UpdateOf<InvoicePaymentLinkRow>>;
+      gateway_events: TableShape<GatewayEventRow, InsertOf<GatewayEventRow>, UpdateOf<GatewayEventRow>>;
       audit_logs: TableShape<AuditLogRow, InsertOf<AuditLogRow>, UpdateOf<AuditLogRow>>;
+      quotations: TableShape<QuotationRow, InsertOf<QuotationRow>, UpdateOf<QuotationRow>>;
+      sales_orders: TableShape<SalesOrderRow, InsertOf<SalesOrderRow>, UpdateOf<SalesOrderRow>>;
+      purchase_orders: TableShape<PurchaseOrderRow, InsertOf<PurchaseOrderRow>, UpdateOf<PurchaseOrderRow>>;
+      credit_notes: TableShape<CreditNoteRow, InsertOf<CreditNoteRow>, UpdateOf<CreditNoteRow>>;
+      vendor_credits: TableShape<VendorCreditRow, InsertOf<VendorCreditRow>, UpdateOf<VendorCreditRow>>;
+      time_entries: TableShape<TimeEntryRow, InsertOf<TimeEntryRow>, UpdateOf<TimeEntryRow>>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

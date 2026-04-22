@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { optionalStateCodeSchema } from "@/lib/india";
 
 export const idSchema = z.string().uuid();
 
@@ -10,6 +11,7 @@ export const addressSchema = z
     line2: z.string().max(120).optional(),
     city: z.string().max(80).optional(),
     state: z.string().max(80).optional(),
+    state_code: optionalStateCodeSchema,
     zip: z.string().max(24).optional(),
     country: z.string().max(80).optional()
   })

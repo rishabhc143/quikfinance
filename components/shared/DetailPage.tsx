@@ -34,6 +34,11 @@ export function DetailPage({ config, id }: { config: ModuleConfig; id: string })
             <Button variant="secondary" className="w-full">
               Duplicate
             </Button>
+            {config.key === "invoices" ? (
+              <Button asChild variant="secondary" className="w-full">
+                <Link href={`/invoices/${id}/payment-link`}>Collect online</Link>
+              </Button>
+            ) : null}
             <Button asChild variant="secondary" className="w-full">
               <Link href={config.key === "bank-accounts" ? `/bank-accounts/${id}/reconciliation` : `/${config.key}`}>Open workflow</Link>
             </Button>

@@ -43,7 +43,7 @@ export function ReportPage({ config }: { config: ReportConfig }) {
               <CardTitle className="text-sm text-muted-foreground">{item.label}</CardTitle>
             </CardHeader>
             <CardContent className={item.tone === "good" ? "text-2xl font-bold text-emerald-600" : item.tone === "warn" ? "text-2xl font-bold text-amber-600" : "text-2xl font-bold"}>
-              {item.label.toLowerCase().includes("margin") || item.label.toLowerCase().includes("risk") ? `${item.value}%` : formatMoney(item.value)}
+              {item.kind === "number" ? new Intl.NumberFormat("en-IN").format(item.value) : item.kind === "percent" ? `${item.value}%` : formatMoney(item.value)}
             </CardContent>
           </Card>
         ))}

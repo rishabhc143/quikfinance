@@ -28,6 +28,9 @@ Create `.env.local` from `.env.local.example` and fill in:
 - `NEXT_PUBLIC_APP_URL`: deployed app URL
 - `RESEND_API_KEY`: Resend API key for invoice delivery
 - `NEXT_PUBLIC_GOOGLE_CLIENT_ID`: Google OAuth client ID
+- `RAZORPAY_KEY_ID`: Razorpay API key ID for invoice payment links
+- `RAZORPAY_KEY_SECRET`: Razorpay secret key for payment-link creation
+- `RAZORPAY_WEBHOOK_SECRET`: Razorpay webhook secret for payment and refund sync
 
 Never expose `SUPABASE_SERVICE_ROLE_KEY` to the browser.
 
@@ -38,6 +41,8 @@ The initial migration creates:
 - Multi-tenant organizations and profiles
 - Chart of accounts, currencies, exchange rates, tax rates, and default account seeding
 - Customers, vendors, invoices, bills, payments, expenses, journal entries, bank reconciliation, reports, budgets, fixed assets, inventory, projects, recurring transactions, attachments, notifications, and audit logs
+- Import jobs for CSV, Tally, Zoho Books, and bank statements
+- Period locks for month-end close, OCR documents for bill drafting, Razorpay invoice payment links, and gateway event history
 - Row Level Security policies scoped through `profiles.org_id`
 - Audit, updated-at, onboarding, and balanced-journal enforcement functions
 - Storage buckets for invoice PDFs and attachments

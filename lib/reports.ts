@@ -7,7 +7,7 @@ export type ReportConfig = {
   apiPath: string;
   columns: { key: string; label: string; kind?: "text" | "money" | "number" }[];
   rows: TableRow[];
-  summary: { label: string; value: number; tone: "good" | "warn" | "neutral" }[];
+  summary: { label: string; value: number; tone: "good" | "warn" | "neutral"; kind?: "money" | "number" | "percent" }[];
 };
 
 export const reportConfigs: Record<string, ReportConfig> = {
@@ -30,7 +30,7 @@ export const reportConfigs: Record<string, ReportConfig> = {
     summary: [
       { label: "Revenue", value: 143800, tone: "good" },
       { label: "Net income", value: 47600, tone: "good" },
-      { label: "Margin", value: 33.1, tone: "neutral" }
+      { label: "Margin", value: 33.1, tone: "neutral", kind: "percent" }
     ]
   },
   "balance-sheet": {
@@ -115,7 +115,119 @@ export const reportConfigs: Record<string, ReportConfig> = {
     summary: [
       { label: "Current", value: 3200, tone: "neutral" },
       { label: "Overdue", value: 232000, tone: "warn" },
-      { label: "Collection risk", value: 21.4, tone: "warn" }
+      { label: "Collection risk", value: 21.4, tone: "warn", kind: "percent" }
+    ]
+  },
+  "gst-summary": {
+    key: "gst-summary",
+    title: "GST Summary",
+    description: "Output GST, input GST, and net GST payable for the selected period.",
+    apiPath: "/api/v1/reports/gst-summary",
+    columns: [
+      { key: "bucket", label: "Bucket" },
+      { key: "taxable_value", label: "Taxable Value", kind: "money" },
+      { key: "tax_amount", label: "GST", kind: "money" },
+      { key: "documents", label: "Documents", kind: "number" }
+    ],
+    rows: [
+      { id: "gst-1", bucket: "Sales output GST", taxable_value: 342000, tax_amount: 41040, documents: 18 },
+      { id: "gst-2", bucket: "Bills input GST", taxable_value: 118000, tax_amount: 14160, documents: 9 },
+      { id: "gst-3", bucket: "Expenses input GST", taxable_value: 22000, tax_amount: 2640, documents: 14 }
+    ],
+    summary: [
+      { label: "Output GST", value: 41040, tone: "warn" },
+      { label: "Input GST", value: 16800, tone: "neutral" },
+      { label: "Net payable", value: 24240, tone: "warn" }
+    ]
+  },
+  "gst-parity": {
+    key: "gst-parity",
+    title: "GST Parity Checks",
+    description: "Checks document GST capture against expected tax behavior and highlights missing-tax issues.",
+    apiPath: "/api/v1/reports/gst-parity",
+    columns: [
+      { key: "check", label: "Check" },
+      { key: "expected", label: "Expected", kind: "money" },
+      { key: "actual", label: "Actual", kind: "money" },
+      { key: "variance", label: "Variance", kind: "money" },
+      { key: "status", label: "Status" }
+    ],
+    rows: [
+      { id: "gp-1", check: "Sales GST parity", expected: 41040, actual: 41040, variance: 0, status: "aligned" },
+      { id: "gp-2", check: "Input GST parity", expected: 16800, actual: 16280, variance: -520, status: "review" },
+      { id: "gp-3", check: "Sales docs missing GST", expected: 0, actual: 1, variance: 1, status: "review" }
+    ],
+    summary: [
+      { label: "Active GST rates", value: 3, tone: "good", kind: "number" },
+      { label: "Checks flagged", value: 2, tone: "warn", kind: "number" },
+      { label: "Default GST %", value: 12, tone: "neutral", kind: "percent" }
+    ]
+  },
+  "gstr-1": {
+    key: "gstr-1",
+    title: "GSTR-1",
+    description: "Outward supply preparation with B2B, B2CL, B2CS, credit note, and export-style buckets.",
+    apiPath: "/api/v1/reports/gstr-1",
+    columns: [
+      { key: "section", label: "Section" },
+      { key: "documents", label: "Documents", kind: "number" },
+      { key: "taxable_value", label: "Taxable Value", kind: "money" },
+      { key: "tax_amount", label: "GST", kind: "money" }
+    ],
+    rows: [
+      { id: "gstr1-1", section: "B2B", documents: 12, taxable_value: 268000, tax_amount: 32160 },
+      { id: "gstr1-2", section: "B2CL", documents: 2, taxable_value: 120000, tax_amount: 14400 },
+      { id: "gstr1-3", section: "B2CS", documents: 7, taxable_value: 54000, tax_amount: 6480 }
+    ],
+    summary: [
+      { label: "Taxable value", value: 442000, tone: "neutral" },
+      { label: "GST collected", value: 53040, tone: "warn" },
+      { label: "Documents", value: 21, tone: "good", kind: "number" }
+    ]
+  },
+  "gstr-3b": {
+    key: "gstr-3b",
+    title: "GSTR-3B",
+    description: "Net tax payable, ITC, and outward supply roll-up for filing-ready review.",
+    apiPath: "/api/v1/reports/gstr-3b",
+    columns: [
+      { key: "line_item", label: "Line item" },
+      { key: "taxable_value", label: "Taxable Value", kind: "money" },
+      { key: "cgst", label: "CGST", kind: "money" },
+      { key: "sgst", label: "SGST", kind: "money" },
+      { key: "igst", label: "IGST", kind: "money" }
+    ],
+    rows: [
+      { id: "gstr3b-1", line_item: "Outward taxable supplies", taxable_value: 342000, cgst: 10260, sgst: 10260, igst: 20520 },
+      { id: "gstr3b-2", line_item: "Eligible ITC", taxable_value: 140000, cgst: 3540, sgst: 3540, igst: 7080 }
+    ],
+    summary: [
+      { label: "Output GST", value: 41040, tone: "warn" },
+      { label: "Eligible ITC", value: 14160, tone: "good" },
+      { label: "Net payable", value: 26880, tone: "warn" }
+    ]
+  },
+  outstanding: {
+    key: "outstanding",
+    title: "Outstanding",
+    description: "Open receivables and payables for follow-up, collections, and payment planning.",
+    apiPath: "/api/v1/reports/outstanding",
+    columns: [
+      { key: "type", label: "Type" },
+      { key: "contact", label: "Contact" },
+      { key: "document_number", label: "Document" },
+      { key: "due_date", label: "Due date" },
+      { key: "balance_due", label: "Balance", kind: "money" },
+      { key: "status", label: "Status" }
+    ],
+    rows: [
+      { id: "out-1", type: "Receivable", contact: "Northstar Labs", document_number: "INV-0001", due_date: "2026-04-30", balance_due: 3200, status: "partial" },
+      { id: "out-2", type: "Payable", contact: "Metro Cloud Hosting", document_number: "BILL-0001", due_date: "2026-04-30", balance_due: 1180, status: "approved" }
+    ],
+    summary: [
+      { label: "Receivables", value: 3200, tone: "good" },
+      { label: "Payables", value: 1180, tone: "warn" },
+      { label: "Documents open", value: 2, tone: "neutral", kind: "number" }
     ]
   }
 };

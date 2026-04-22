@@ -2,6 +2,14 @@ import type { ApiContext } from "@/lib/api/auth";
 import type { CrudConfig } from "@/lib/api/crud";
 import { accountSchema } from "@/lib/validations/account.schema";
 import { billSchema } from "@/lib/validations/bill.schema";
+import {
+  creditNoteSchema,
+  purchaseOrderSchema,
+  quotationSchema,
+  salesOrderSchema,
+  timeEntrySchema,
+  vendorCreditSchema
+} from "@/lib/validations/commercial.schema";
 import { customerSchema } from "@/lib/validations/customer.schema";
 import { invoiceSchema } from "@/lib/validations/invoice.schema";
 import {
@@ -49,6 +57,44 @@ function prepareJournalEntry(body: Record<string, unknown>) {
   };
 }
 
+function prepareQuotation(body: Record<string, unknown>) {
+  return {
+    ...body,
+    quotation_number: typeof body.quotation_number === "string" && body.quotation_number.length > 0 ? body.quotation_number : sequenceNumber("QT")
+  };
+}
+
+function prepareSalesOrder(body: Record<string, unknown>) {
+  return {
+    ...body,
+    sales_order_number: typeof body.sales_order_number === "string" && body.sales_order_number.length > 0 ? body.sales_order_number : sequenceNumber("SO")
+  };
+}
+
+function preparePurchaseOrder(body: Record<string, unknown>) {
+  return {
+    ...body,
+    purchase_order_number:
+      typeof body.purchase_order_number === "string" && body.purchase_order_number.length > 0 ? body.purchase_order_number : sequenceNumber("PO")
+  };
+}
+
+function prepareCreditNote(body: Record<string, unknown>) {
+  return {
+    ...body,
+    credit_note_number:
+      typeof body.credit_note_number === "string" && body.credit_note_number.length > 0 ? body.credit_note_number : sequenceNumber("CN")
+  };
+}
+
+function prepareVendorCredit(body: Record<string, unknown>) {
+  return {
+    ...body,
+    vendor_credit_number:
+      typeof body.vendor_credit_number === "string" && body.vendor_credit_number.length > 0 ? body.vendor_credit_number : sequenceNumber("VC")
+  };
+}
+
 function prepareFixedAsset(body: Record<string, unknown>) {
   return {
     ...body,
@@ -85,8 +131,34 @@ export const invoiceRouteConfig: CrudConfig<"invoices"> = {
   schema: invoiceSchema,
   entity: "invoice",
   searchColumn: "invoice_number",
+  lockDateField: "issue_date",
+  lockScope: "sales",
   prepareCreate: prepareInvoice,
   prepareUpdate: prepareInvoice
+};
+
+export const quotationRouteConfig: CrudConfig<"quotations"> = {
+  table: "quotations",
+  schema: quotationSchema,
+  entity: "quotation",
+  searchColumn: "quotation_number",
+  orderColumn: "issue_date",
+  lockDateField: "issue_date",
+  lockScope: "sales",
+  prepareCreate: prepareQuotation,
+  prepareUpdate: prepareQuotation
+};
+
+export const salesOrderRouteConfig: CrudConfig<"sales_orders"> = {
+  table: "sales_orders",
+  schema: salesOrderSchema,
+  entity: "sales_order",
+  searchColumn: "sales_order_number",
+  orderColumn: "issue_date",
+  lockDateField: "issue_date",
+  lockScope: "sales",
+  prepareCreate: prepareSalesOrder,
+  prepareUpdate: prepareSalesOrder
 };
 
 export const billRouteConfig: CrudConfig<"bills"> = {
@@ -94,15 +166,55 @@ export const billRouteConfig: CrudConfig<"bills"> = {
   schema: billSchema,
   entity: "bill",
   searchColumn: "bill_number",
+  lockDateField: "issue_date",
+  lockScope: "purchases",
   prepareCreate: prepareBill,
   prepareUpdate: prepareBill
+};
+
+export const purchaseOrderRouteConfig: CrudConfig<"purchase_orders"> = {
+  table: "purchase_orders",
+  schema: purchaseOrderSchema,
+  entity: "purchase_order",
+  searchColumn: "purchase_order_number",
+  orderColumn: "issue_date",
+  lockDateField: "issue_date",
+  lockScope: "purchases",
+  prepareCreate: preparePurchaseOrder,
+  prepareUpdate: preparePurchaseOrder
+};
+
+export const creditNoteRouteConfig: CrudConfig<"credit_notes"> = {
+  table: "credit_notes",
+  schema: creditNoteSchema,
+  entity: "credit_note",
+  searchColumn: "credit_note_number",
+  orderColumn: "issue_date",
+  lockDateField: "issue_date",
+  lockScope: "sales",
+  prepareCreate: prepareCreditNote,
+  prepareUpdate: prepareCreditNote
+};
+
+export const vendorCreditRouteConfig: CrudConfig<"vendor_credits"> = {
+  table: "vendor_credits",
+  schema: vendorCreditSchema,
+  entity: "vendor_credit",
+  searchColumn: "vendor_credit_number",
+  orderColumn: "issue_date",
+  lockDateField: "issue_date",
+  lockScope: "purchases",
+  prepareCreate: prepareVendorCredit,
+  prepareUpdate: prepareVendorCredit
 };
 
 export const paymentRouteConfig: CrudConfig<"payments"> = {
   table: "payments",
   schema: paymentSchema,
   entity: "payment",
-  orderColumn: "payment_date"
+  orderColumn: "payment_date",
+  lockDateField: "payment_date",
+  lockScope: "all"
 };
 
 export const expenseRouteConfig: CrudConfig<"expenses"> = {
@@ -110,7 +222,9 @@ export const expenseRouteConfig: CrudConfig<"expenses"> = {
   schema: expenseSchema,
   entity: "expense",
   searchColumn: "description",
-  orderColumn: "expense_date"
+  orderColumn: "expense_date",
+  lockDateField: "expense_date",
+  lockScope: "purchases"
 };
 
 export const journalRouteConfig: CrudConfig<"journal_entries"> = {
@@ -119,6 +233,8 @@ export const journalRouteConfig: CrudConfig<"journal_entries"> = {
   entity: "journal_entry",
   searchColumn: "entry_number",
   orderColumn: "entry_date",
+  lockDateField: "entry_date",
+  lockScope: "journals",
   prepareCreate: prepareJournalEntry,
   prepareUpdate: keepContext
 };
@@ -170,6 +286,14 @@ export const projectRouteConfig: CrudConfig<"projects"> = {
   entity: "project",
   searchColumn: "name",
   orderColumn: "name"
+};
+
+export const timeEntryRouteConfig: CrudConfig<"time_entries"> = {
+  table: "time_entries",
+  schema: timeEntrySchema,
+  entity: "time_entry",
+  searchColumn: "description",
+  orderColumn: "work_date"
 };
 
 export const taxRouteConfig: CrudConfig<"tax_rates"> = {

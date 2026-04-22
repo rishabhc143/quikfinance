@@ -1,14 +1,21 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
+import { optionalGstinSchema, optionalPanSchema, optionalStateCodeSchema } from "@/lib/india";
 import { requireApiContext } from "@/lib/api/auth";
 import { fail, ok } from "@/lib/api/responses";
 
 const companySchema = z.object({
   name: z.string().trim().min(2),
-  legal_name: z.string().trim().optional(),
-  tax_id: z.string().trim().optional(),
-  base_currency: z.string().trim().length(3).default("USD"),
-  timezone: z.string().trim().default("UTC")
+  legal_name: z.string().trim().optional().nullable(),
+  tax_id: optionalGstinSchema,
+  gstin: optionalGstinSchema,
+  pan: optionalPanSchema,
+  state_code: optionalStateCodeSchema,
+  preferred_language: z.enum(["en", "hi"]).default("en"),
+  default_upi_id: z.string().trim().max(120).optional().nullable(),
+  base_currency: z.string().trim().length(3).default("INR"),
+  fiscal_year_start: z.coerce.number().int().min(1).max(12).default(4),
+  timezone: z.string().trim().default("Asia/Kolkata")
 });
 
 export const dynamic = "force-dynamic";
@@ -26,7 +33,10 @@ export async function PUT(request: NextRequest) {
 
   const { data, error } = await auth.context.supabase
     .from("organizations")
-    .update(parsed.data)
+    .update({
+      ...parsed.data,
+      tax_id: parsed.data.gstin ?? parsed.data.tax_id ?? null
+    })
     .eq("id", auth.context.orgId)
     .select("*")
     .single();

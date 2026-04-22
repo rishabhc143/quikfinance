@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { errorMessage, fail, ok } from "@/lib/api/responses";
 import { requireApiContext, type ApiContext } from "@/lib/api/auth";
+import { assertPeriodUnlocked } from "@/lib/period-locks";
 import type { Database, Json } from "@/types/database.types";
 
 type TableName = keyof Database["public"]["Tables"];
@@ -28,6 +29,8 @@ export type CrudConfig<T extends TableName> = {
   fixedFilters?: Record<string, string | number | boolean>;
   prepareCreate?: (body: BodyRecord, context: ApiContext) => BodyRecord;
   prepareUpdate?: (body: BodyRecord, context: ApiContext) => BodyRecord;
+  lockDateField?: string;
+  lockScope?: "all" | "sales" | "purchases" | "banking" | "journals";
 };
 
 type RouteContext = {
@@ -45,6 +48,14 @@ function readRecordId(value: unknown): string | null {
     return null;
   }
   return typeof value.id === "string" ? value.id : null;
+}
+
+function readRecordField(value: unknown, field: string): string | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const entry = value[field];
+  return typeof entry === "string" ? entry : null;
 }
 
 async function parseJson(request: NextRequest) {
@@ -128,6 +139,12 @@ export function createCrudHandlers<T extends TableName>(config: CrudConfig<T>) {
       }
 
       const prepared = config.prepareCreate?.(parsed.data, auth.context) ?? parsed.data;
+      if (config.lockDateField && config.lockScope) {
+        const lockResponse = await assertPeriodUnlocked(auth.context, readRecordField(prepared, config.lockDateField), config.lockScope);
+        if (lockResponse) {
+          return lockResponse;
+        }
+      }
       const payload = config.orgScoped === false ? prepared : { ...prepared, org_id: auth.context.orgId };
       const { data, error } = await auth.context.supabase
         .from(config.table)
@@ -181,6 +198,25 @@ export function createCrudItemHandlers<T extends TableName>(config: CrudConfig<T
       }
 
       const prepared = config.prepareUpdate?.(parsed.data, auth.context) ?? parsed.data;
+      if (config.lockDateField && config.lockScope) {
+        const { data: existing, error: existingError } = await applyFilters(
+          asQuery(auth.context.supabase.from(config.table).select(config.lockDateField)),
+          config,
+          auth.context
+        )
+          .eq("id", params.id)
+          .single();
+
+        if (existingError) {
+          return fail(404, { code: "NOT_FOUND", message: `${config.entity} was not found.` });
+        }
+
+        const lockDate = readRecordField(prepared, config.lockDateField) ?? readRecordField(existing, config.lockDateField);
+        const lockResponse = await assertPeriodUnlocked(auth.context, lockDate, config.lockScope);
+        if (lockResponse) {
+          return lockResponse;
+        }
+      }
       const { data, error } = await applyFilters(asQuery(auth.context.supabase.from(config.table).update(prepared as never)), config, auth.context)
         .eq("id", params.id)
         .select(config.select ?? "*")
@@ -197,6 +233,25 @@ export function createCrudItemHandlers<T extends TableName>(config: CrudConfig<T
       const auth = await requireApiContext();
       if (!auth.ok) {
         return fail(auth.status, { code: auth.code, message: auth.message });
+      }
+
+      if (config.lockDateField && config.lockScope) {
+        const { data: existing, error: existingError } = await applyFilters(
+          asQuery(auth.context.supabase.from(config.table).select(config.lockDateField)),
+          config,
+          auth.context
+        )
+          .eq("id", params.id)
+          .single();
+
+        if (existingError) {
+          return fail(404, { code: "NOT_FOUND", message: `${config.entity} was not found.` });
+        }
+
+        const lockResponse = await assertPeriodUnlocked(auth.context, readRecordField(existing, config.lockDateField), config.lockScope);
+        if (lockResponse) {
+          return lockResponse;
+        }
       }
 
       const { error } = await applyFilters(asQuery(auth.context.supabase.from(config.table).delete()), config, auth.context).eq("id", params.id);

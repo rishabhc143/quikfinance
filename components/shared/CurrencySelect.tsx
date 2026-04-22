@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils/cn";
 
-const currencies = ["USD", "INR", "EUR", "GBP", "JPY", "CAD", "AUD"];
+const currencies = ["INR", "USD", "EUR", "GBP", "JPY", "CAD", "AUD"];
 
 export function CurrencySelect({
   value,

@@ -17,8 +17,8 @@ export function toMinorUnits(amount: number, precision = 2) {
   return Math.round(amount * 10 ** precision);
 }
 
-export function formatMoney(amount: number, currency = "USD", locale = "en-US") {
-  const supportedCurrency = currency in currencyMap ? (currency as SupportedCurrency) : "USD";
+export function formatMoney(amount: number, currency = "INR", locale = "en-IN") {
+  const supportedCurrency = currency in currencyMap ? (currency as SupportedCurrency) : "INR";
   const value = dinero({
     amount: toMinorUnits(amount, currencyMap[supportedCurrency].exponent),
     currency: currencyMap[supportedCurrency]

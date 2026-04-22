@@ -46,7 +46,7 @@ export function ModulePage({ config }: { config: ModuleConfig }) {
   });
 
   const total = rows.reduce((sum, row) => {
-    const amount = row.total ?? row.amount ?? row.balance ?? row.current_balance ?? row.outstanding ?? 0;
+    const amount = row.total ?? row.amount ?? row.rate ?? row.balance ?? row.current_balance ?? row.outstanding ?? 0;
     return sum + (typeof amount === "number" ? amount : 0);
   }, 0);
 

@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { requireApiContext } from "@/lib/api/auth";
 import { fail, ok } from "@/lib/api/responses";
-import { fallbackDashboard } from "@/lib/hooks/useDashboard";
+import { fallbackDashboard } from "@/lib/dashboard-data";
 import { getReportConfig } from "@/lib/reports";
 
 export function createReportHandler(reportKey: string) {
