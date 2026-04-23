@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { LifeBuoy, MessageCircle, Send, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,6 +44,20 @@ const quickPrompts = [
   "I need a human to help me"
 ];
 
+function mergeMessages(primary: SupportMessage[], incoming: SupportMessage[]) {
+  return incoming.reduce<SupportMessage[]>(
+    (messages, item) => (messages.some((messageItem) => messageItem.id === item.id) ? messages : [...messages, item]),
+    primary
+  );
+}
+
+function mergeTickets(primary: SupportTicket[], incoming: SupportTicket[]) {
+  return incoming.reduce<SupportTicket[]>(
+    (tickets, item) => (tickets.some((ticket) => ticket.id === item.id) ? tickets : [...tickets, item]),
+    primary
+  );
+}
+
 export function FloatingSupportChat({
   token,
   customerName
@@ -54,8 +68,9 @@ export function FloatingSupportChat({
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [localMessages, setLocalMessages] = useState<SupportMessage[]>([]);
+  const [localTickets, setLocalTickets] = useState<SupportTicket[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const queryClient = useQueryClient();
   const chatQueryKey = ["floating-portal-support-chat", token] as const;
 
   const chat = useQuery({
@@ -71,8 +86,17 @@ export function FloatingSupportChat({
     }
   });
 
-  const visibleMessages = useMemo(() => chat.data?.messages ?? [], [chat.data?.messages]);
-  const latestTicket = chat.data?.tickets?.[0];
+  useEffect(() => {
+    if (chat.data?.messages?.length) {
+      setLocalMessages((current) => mergeMessages(chat.data?.messages ?? [], current.filter((item) => item.id.startsWith("local-"))));
+    }
+    if (chat.data?.tickets?.length) {
+      setLocalTickets(chat.data.tickets);
+    }
+  }, [chat.data?.messages, chat.data?.tickets]);
+
+  const visibleMessages = useMemo(() => localMessages, [localMessages]);
+  const latestTicket = localTickets[0] ?? chat.data?.tickets?.[0];
 
   useEffect(() => {
     if (isOpen) {
@@ -87,6 +111,14 @@ export function FloatingSupportChat({
     }
 
     setIsSending(true);
+    setMessage("");
+    const localUserMessage: SupportMessage = {
+      id: `local-user-${Date.now()}`,
+      role: "user",
+      body: trimmed,
+      created_at: new Date().toISOString()
+    };
+    setLocalMessages((current) => [...current, localUserMessage]);
 
     try {
       const response = await fetch(`/api/public/chat/${token}`, {
@@ -104,33 +136,41 @@ export function FloatingSupportChat({
         throw new Error(payload.error?.message ?? "Support message could not be sent.");
       }
 
-      setMessage("");
       if (payload.data?.user_message && payload.data?.assistant_message) {
-        queryClient.setQueryData<ChatState>(chatQueryKey, (current) => {
-          const existingMessages = current?.messages ?? [];
-          const nextMessages = [payload.data!.user_message, payload.data!.assistant_message].reduce<SupportMessage[]>(
-            (messages, item) => (messages.some((messageItem) => messageItem.id === item.id) ? messages : [...messages, item]),
-            existingMessages
-          );
-          const existingTickets = current?.tickets ?? [];
-          const nextTickets =
-            payload.data!.ticket && !existingTickets.some((ticket) => ticket.id === payload.data!.ticket?.id)
-              ? [payload.data!.ticket, ...existingTickets]
-              : existingTickets;
-
-          return {
-            configured: payload.data!.configured,
-            messages: nextMessages,
-            tickets: nextTickets
-          };
+        setLocalMessages((current) => {
+          const withoutTemporaryUser = current.filter((item) => item.id !== localUserMessage.id);
+          return mergeMessages(withoutTemporaryUser, [payload.data!.user_message, payload.data!.assistant_message]);
         });
+      } else {
+        setLocalMessages((current) =>
+          mergeMessages(current, [
+            {
+              id: `local-assistant-${Date.now()}`,
+              role: "assistant",
+              body: "I received your message. Your support request has been sent to the QuikFinance team.",
+              created_at: new Date().toISOString()
+            }
+          ])
+        );
       }
       if (payload.data?.ticket?.ticket_number) {
+        setLocalTickets((current) => mergeTickets([payload.data!.ticket!], current));
         toast.success(`Support ticket ${payload.data.ticket.ticket_number} created`);
       }
       void chat.refetch();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Support message could not be sent.");
+      const errorMessage = error instanceof Error ? error.message : "Support message could not be sent.";
+      setLocalMessages((current) =>
+        mergeMessages(current, [
+          {
+            id: `local-error-${Date.now()}`,
+            role: "assistant",
+            body: `I could not send that message right now. Please try again in a moment. Details: ${errorMessage}`,
+            created_at: new Date().toISOString()
+          }
+        ])
+      );
+      toast.error(errorMessage);
     } finally {
       setIsSending(false);
     }
@@ -173,7 +213,7 @@ export function FloatingSupportChat({
             ) : null}
 
             <div className="h-[330px] space-y-3 overflow-y-auto rounded-2xl bg-muted/40 p-3">
-              {chat.isLoading ? (
+              {chat.isLoading && visibleMessages.length === 0 ? (
                 <div className="rounded-2xl bg-background p-4 text-sm text-muted-foreground shadow-sm">
                   Loading support chat...
                 </div>
@@ -203,9 +243,17 @@ export function FloatingSupportChat({
                   ) : null}
                 </>
               ) : (
-                <div className="rounded-2xl bg-background p-4 text-sm text-muted-foreground shadow-sm">
-                  Hi {customerName}, ask me about invoices, payments, statements, orders, refunds, or any billing issue.
-                </div>
+                <>
+                  <div className="rounded-2xl bg-background p-4 text-sm text-muted-foreground shadow-sm">
+                    Hi {customerName}, ask me about invoices, payments, statements, orders, refunds, or any billing issue.
+                  </div>
+                  {isSending ? (
+                    <div className="max-w-[88%] rounded-2xl bg-background px-4 py-3 text-sm text-muted-foreground shadow-sm">
+                      <p className="text-xs font-semibold opacity-80">Support Assistant</p>
+                      <p className="mt-1">Thinking and checking your account...</p>
+                    </div>
+                  ) : null}
+                </>
               )}
               <div ref={messagesEndRef} />
             </div>
