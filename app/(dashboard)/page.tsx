@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AgingSummaryWidget } from "@/components/dashboard/AgingSummaryWidget";
 import { CashFlowWidget } from "@/components/dashboard/CashFlowWidget";
+import { CommandCenterPanel } from "@/components/dashboard/CommandCenterPanel";
 import { ExpensesChart } from "@/components/dashboard/ExpensesChart";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { RevenueChart } from "@/components/dashboard/RevenueChart";
@@ -33,6 +34,7 @@ export default function DashboardPage() {
           <KPICard key={kpi.label} {...kpi} />
         ))}
       </div>
+      <CommandCenterPanel />
       <div className="grid gap-4 lg:grid-cols-3">
         <RevenueChart data={data.revenueExpense} />
         <ExpensesChart data={data.aging} />

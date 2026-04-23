@@ -78,8 +78,10 @@ export const navigationGroups: { label: string; items: NavItem[] }[] = [
       { title: "Quotations", href: "/quotations", icon: FileText },
       { title: "Sales Orders", href: "/sales-orders", icon: ClipboardList },
       { title: "Invoices", href: "/invoices", icon: FileText },
+      { title: "Recurring Invoices", href: "/recurring-invoices", icon: Repeat2 },
       { title: "Credit Notes", href: "/credit-notes", icon: Repeat2 },
-      { title: "Payments Received", href: "/payments/received", icon: CircleDollarSign }
+      { title: "Payments Received", href: "/payments/received", icon: CircleDollarSign },
+      { title: "Collections", href: "/collections", icon: CircleDollarSign }
     ]
   },
   {
@@ -87,18 +89,32 @@ export const navigationGroups: { label: string; items: NavItem[] }[] = [
     items: [
       { title: "Vendors", href: "/vendors", icon: Building2 },
       { title: "Purchase Orders", href: "/purchase-orders", icon: ClipboardList },
+      { title: "Goods Receipts", href: "/goods-receipts", icon: Package },
       { title: "Bills", href: "/bills", icon: ClipboardList },
+      { title: "Recurring Bills", href: "/recurring-bills", icon: Repeat2 },
       { title: "Vendor Credits", href: "/vendor-credits", icon: Repeat2 },
       { title: "Expenses", href: "/expenses", icon: Receipt },
-      { title: "Payments Made", href: "/payments/made", icon: CreditCard }
+      { title: "Payments Made", href: "/payments/made", icon: CreditCard },
+      { title: "Payables", href: "/payables", icon: WalletCards }
     ]
   },
   {
     label: "Accounting",
     items: [
       { title: "Chart of Accounts", href: "/chart-of-accounts", icon: BookOpen },
+      { title: "Ledgers", href: "/ledgers", icon: BookOpen },
+      { title: "Day Book", href: "/day-book", icon: ClipboardList },
       { title: "Journal Entries", href: "/journal-entries", icon: Calculator },
-      { title: "Bank Accounts", href: "/bank-accounts", icon: Landmark }
+      { title: "Bank Accounts", href: "/bank-accounts", icon: Landmark },
+      { title: "Payments Operations", href: "/payment-operations", icon: CreditCard }
+    ]
+  },
+  {
+    label: "Compliance",
+    items: [
+      { title: "GST Command Center", href: "/gst-command-center", icon: Receipt },
+      { title: "ITC Reconciliation", href: "/itc-reconciliation", icon: Tags },
+      { title: "Exception Queue", href: "/exception-queue", icon: ShieldCheck }
     ]
   },
   {
@@ -121,16 +137,22 @@ export const navigationGroups: { label: string; items: NavItem[] }[] = [
     items: [
       { title: "Fixed Assets", href: "/fixed-assets", icon: Briefcase },
       { title: "Inventory", href: "/inventory", icon: Package },
+      { title: "Warehouses", href: "/warehouses", icon: Boxes },
+      { title: "Stock Movements", href: "/stock-movements", icon: Repeat2 },
       { title: "Projects", href: "/projects", icon: Boxes },
       { title: "Time Tracking", href: "/time-tracking", icon: Activity },
-      { title: "Budgets", href: "/budgets", icon: WalletCards }
+      { title: "Budgets", href: "/budgets", icon: WalletCards },
+      { title: "Documents", href: "/documents", icon: FileText }
     ]
   },
   {
     label: "Automation",
     items: [
       { title: "Imports", href: "/imports", icon: Upload },
+      { title: "Migration Center", href: "/migration-center", icon: Upload },
       { title: "OCR Bills", href: "/ocr-bills", icon: ScanText },
+      { title: "Approvals", href: "/approvals", icon: ShieldCheck },
+      { title: "Audit Trail", href: "/audit-trail", icon: ClipboardList },
       { title: "Period Locks", href: "/period-locks", icon: ShieldCheck },
       { title: "Integrations", href: "/integrations", icon: Cable }
     ]
