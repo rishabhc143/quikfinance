@@ -1,8 +1,8 @@
 import Link from "next/link";
+import { FloatingSupportChat } from "@/components/portals/FloatingSupportChat";
 import { notFound } from "next/navigation";
 import { PortalComments } from "@/components/portals/PortalComments";
 import { PortalShell } from "@/components/portals/PortalShell";
-import { SupportChat } from "@/components/portals/SupportChat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCustomerPortalPayload } from "@/lib/portals";
 import { formatMoney } from "@/lib/utils/currency";
@@ -72,11 +72,6 @@ export default async function CustomerPortalPage({ params }: { params: { token: 
           </CardContent>
         </Card>
         <div className="space-y-6">
-          <SupportChat
-            token={params.token}
-            customerName={payload.customer?.display_name ?? "Customer"}
-            locale={payload.organization?.preferred_language === "hi" ? "hi" : "en"}
-          />
           <Card>
             <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
             <CardContent>
@@ -85,6 +80,7 @@ export default async function CustomerPortalPage({ params }: { params: { token: 
           </Card>
         </div>
       </div>
+      <FloatingSupportChat token={params.token} customerName={payload.customer?.display_name ?? "Customer"} />
     </PortalShell>
   );
 }
