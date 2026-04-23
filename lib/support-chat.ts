@@ -584,6 +584,42 @@ export async function generateFallbackSupportReply({
       : null) ??
     payload.invoices.find((invoice) => Number(invoice.balance_due ?? 0) > 0) ??
     payload.invoices[0];
+  const wantsHumanSupport =
+    normalized.includes("human") ||
+    normalized.includes("agent") ||
+    normalized.includes("call me") ||
+    normalized.includes("support") ||
+    normalized.includes("representative") ||
+    normalized.includes("person");
+  const wantsCapabilities =
+    normalized.includes("what can you do") ||
+    normalized.includes("what can you help") ||
+    normalized.includes("how can you help") ||
+    normalized === "help" ||
+    normalized === "help?" ||
+    normalized === "hi" ||
+    normalized === "hello" ||
+    normalized === "hey";
+  const wantsLatestInvoice =
+    normalized.includes("latest invoice") ||
+    normalized.includes("last invoice") ||
+    normalized.includes("recent invoice");
+
+  if (wantsHumanSupport) {
+    const ticket = await createSupportTicket({
+      portal,
+      conversationId,
+      subject: "Customer requested human support",
+      summary: latestCustomerMessage,
+      priority: "high"
+    });
+
+    return {
+      assistantText: `I created support ticket ${ticket.ticket_number}. A team member will follow up with you soon.`,
+      ticket,
+      responseId: null
+    };
+  }
 
   if (normalized.includes("statement")) {
     return {
@@ -593,10 +629,17 @@ export async function generateFallbackSupportReply({
     };
   }
 
-  if (matchingInvoice && (normalized.includes("invoice") || normalized.includes("due") || normalized.includes("overdue") || normalized.includes("status"))) {
-    const paymentLine = matchingInvoice.payment_link?.short_url ? ` Payment link: ${matchingInvoice.payment_link.short_url}` : "";
+  if (matchingInvoice && (normalized.includes("pdf") || normalized.includes("download invoice") || normalized.includes("invoice copy"))) {
     return {
-      assistantText: `${matchingInvoice.invoice_number} is currently ${matchingInvoice.status}. Due date: ${matchingInvoice.due_date}. Balance due: ${matchingInvoice.balance_due}.${paymentLine}`,
+      assistantText: `You can open the PDF for ${matchingInvoice.invoice_number} here: ${getServerEnv().appUrl}/api/public/invoices/${matchingInvoice.id}/pdf?token=${portal.access_token}`,
+      ticket: null,
+      responseId: null
+    };
+  }
+
+  if (matchingInvoice && wantsLatestInvoice) {
+    return {
+      assistantText: `Your latest invoice is ${matchingInvoice.invoice_number}. Status: ${matchingInvoice.status}. Due date: ${matchingInvoice.due_date}. Balance due: ${matchingInvoice.balance_due}.`,
       ticket: null,
       responseId: null
     };
@@ -626,6 +669,15 @@ export async function generateFallbackSupportReply({
     };
   }
 
+  if (matchingInvoice && (normalized.includes("invoice") || normalized.includes("due") || normalized.includes("overdue") || normalized.includes("status"))) {
+    const paymentLine = matchingInvoice.payment_link?.short_url ? ` Payment link: ${matchingInvoice.payment_link.short_url}` : "";
+    return {
+      assistantText: `${matchingInvoice.invoice_number} is currently ${matchingInvoice.status}. Due date: ${matchingInvoice.due_date}. Balance due: ${matchingInvoice.balance_due}.${paymentLine}`,
+      ticket: null,
+      responseId: null
+    };
+  }
+
   const openInvoices = payload.invoices.filter((invoice) => Number(invoice.balance_due ?? 0) > 0);
   if (normalized.includes("outstanding") || normalized.includes("unpaid")) {
     if (openInvoices.length === 0) {
@@ -647,18 +699,11 @@ export async function generateFallbackSupportReply({
     };
   }
 
-  if (normalized.includes("human") || normalized.includes("agent") || normalized.includes("call me") || normalized.includes("support")) {
-    const ticket = await createSupportTicket({
-      portal,
-      conversationId,
-      subject: "Customer requested human support",
-      summary: latestCustomerMessage,
-      priority: "high"
-    });
-
+  if (wantsCapabilities) {
     return {
-      assistantText: `I created support ticket ${ticket.ticket_number}. A team member will follow up with you soon.`,
-      ticket,
+      assistantText:
+        "I can help with invoice status, due dates, unpaid balances, payment links, invoice PDF downloads, statement downloads, and support escalation if you need a human.",
+      ticket: null,
       responseId: null
     };
   }
