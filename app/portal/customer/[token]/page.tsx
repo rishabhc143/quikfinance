@@ -72,7 +72,11 @@ export default async function CustomerPortalPage({ params }: { params: { token: 
           </CardContent>
         </Card>
         <div className="space-y-6">
-          <SupportChat token={params.token} customerName={payload.customer?.display_name ?? "Customer"} />
+          <SupportChat
+            token={params.token}
+            customerName={payload.customer?.display_name ?? "Customer"}
+            locale={payload.organization?.preferred_language === "hi" ? "hi" : "en"}
+          />
           <Card>
             <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
             <CardContent>

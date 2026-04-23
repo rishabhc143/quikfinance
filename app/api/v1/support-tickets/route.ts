@@ -11,7 +11,7 @@ export async function GET() {
 
   const { data, error } = await auth.context.supabase
     .from("support_tickets")
-    .select("id, ticket_number, subject, priority, status, requested_by_name, requested_by_email, created_at")
+    .select("id, ticket_number, subject, priority, status, requested_by_name, requested_by_email, follow_up, created_at")
     .eq("org_id", auth.context.orgId)
     .order("created_at", { ascending: false })
     .limit(100);

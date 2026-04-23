@@ -446,6 +446,7 @@ export type SupportTicketRow = {
   requested_by_name: string | null;
   requested_by_email: string | null;
   source: string;
+  follow_up: Json;
   created_at: string;
   updated_at: string | null;
 };

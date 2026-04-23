@@ -54,7 +54,15 @@ export async function getCustomerPortalPayload(token: string) {
   }
 
   const admin = createSupabaseAdminClient();
-  const [{ data: organization }, { data: customer }, { data: invoices }, { data: paymentLinks }] = await Promise.all([
+  const [
+    { data: organization },
+    { data: customer },
+    { data: invoices },
+    { data: paymentLinks },
+    { data: salesOrders },
+    { data: quotations },
+    { data: creditNotes }
+  ] = await Promise.all([
     admin.from("organizations").select("name, legal_name, base_currency, preferred_language").eq("id", portal.org_id).single(),
     admin.from("contacts").select("id, display_name, email, phone, tax_id").eq("org_id", portal.org_id).eq("id", portal.contact_id).single(),
     admin
@@ -67,7 +75,28 @@ export async function getCustomerPortalPayload(token: string) {
       .from("invoice_payment_links")
       .select("invoice_id, short_url, status, amount, amount_paid")
       .eq("org_id", portal.org_id)
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: false }),
+    admin
+      .from("sales_orders")
+      .select("id, sales_order_number, issue_date, due_date, total, status")
+      .eq("org_id", portal.org_id)
+      .eq("contact_id", portal.contact_id)
+      .order("issue_date", { ascending: false })
+      .limit(10),
+    admin
+      .from("quotations")
+      .select("id, quotation_number, issue_date, due_date, total, status")
+      .eq("org_id", portal.org_id)
+      .eq("contact_id", portal.contact_id)
+      .order("issue_date", { ascending: false })
+      .limit(10),
+    admin
+      .from("credit_notes")
+      .select("id, credit_note_number, issue_date, due_date, total, status, invoice_id")
+      .eq("org_id", portal.org_id)
+      .eq("contact_id", portal.contact_id)
+      .order("issue_date", { ascending: false })
+      .limit(10)
   ]);
 
   const paymentLinkByInvoice = new Map<string, { short_url: string | null; status: string; amount: number; amount_paid: number }>();
@@ -90,7 +119,10 @@ export async function getCustomerPortalPayload(token: string) {
     invoices: (invoices ?? []).map((invoice) => ({
       ...invoice,
       payment_link: paymentLinkByInvoice.get(String(invoice.id)) ?? null
-    }))
+    })),
+    salesOrders: salesOrders ?? [],
+    quotations: quotations ?? [],
+    creditNotes: creditNotes ?? []
   };
 }
 
