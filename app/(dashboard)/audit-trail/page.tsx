@@ -2,5 +2,6 @@ import { WorkflowPage } from "@/components/shared/WorkflowPage";
 import { getWorkflowPage } from "@/lib/workflow-pages";
 
 export default function Page() {
-  return <WorkflowPage config={getWorkflowPage("audit-trail")} />;
+  return <WorkflowPage config={getWorkflowPage("audit-trail")} workflowKey="audit-trail" />;
 }
+

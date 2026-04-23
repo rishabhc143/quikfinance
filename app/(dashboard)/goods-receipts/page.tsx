@@ -2,5 +2,6 @@ import { WorkflowPage } from "@/components/shared/WorkflowPage";
 import { getWorkflowPage } from "@/lib/workflow-pages";
 
 export default function Page() {
-  return <WorkflowPage config={getWorkflowPage("goods-receipts")} />;
+  return <WorkflowPage config={getWorkflowPage("goods-receipts")} workflowKey="goods-receipts" />;
 }
+

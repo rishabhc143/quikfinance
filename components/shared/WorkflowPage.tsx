@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { OperationalRecordsPanel } from "@/components/shared/OperationalRecordsPanel";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { formatMoney } from "@/lib/utils/currency";
 
@@ -37,7 +38,7 @@ function renderMetricValue(value: string | number) {
   return value;
 }
 
-export function WorkflowPage({ config }: { config: WorkflowConfig }) {
+export function WorkflowPage({ config, workflowKey }: { config: WorkflowConfig; workflowKey?: string }) {
   return (
     <div className="space-y-6 animate-fade-up">
       <PageHeader
@@ -119,6 +120,7 @@ export function WorkflowPage({ config }: { config: WorkflowConfig }) {
           </Card>
         </div>
       </div>
+      {workflowKey ? <OperationalRecordsPanel workflowKey={workflowKey} /> : null}
     </div>
   );
 }

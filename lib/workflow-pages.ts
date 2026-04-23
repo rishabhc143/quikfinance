@@ -440,6 +440,81 @@ export const workflowPages: Record<string, WorkflowConfig> = {
       { title: "GST Command Center", description: "Compliance blockers.", href: "/gst-command-center" },
       { title: "Documents", description: "OCR and duplicate exceptions.", href: "/documents" }
     ]
+  },
+  "rules-engine": {
+    title: "Rules Engine",
+    description: "Automation control plane for reminders, exceptions, approval routing, and scheduled finance operations.",
+    metrics: [
+      { label: "Active rules", value: 4, helper: "Reminder, approval, GST, and reconciliation automations" },
+      { label: "Runs today", value: 12, helper: "Scheduled and event-triggered evaluations" },
+      { label: "Failed runs", value: 0, helper: "No failed automation actions" },
+      { label: "Manual review", value: 3, helper: "Rules created exceptions for user review" }
+    ],
+    queues: [
+      { title: "Configure overdue reminder rule", description: "Create receivable reminders based on due date, balance, and customer risk.", status: "Collections", href: "/collections" },
+      { title: "Route approval rules", description: "Send high-value bills, journals, and stock adjustments to maker-checker approval.", status: "Governance", href: "/approvals" },
+      { title: "Create exception rules", description: "Open exceptions for GST blockers, bank mismatches, and duplicate documents.", status: "Control", href: "/exception-queue" }
+    ],
+    operatingRules: [
+      "Automation should create reviewable records; it should not silently post accounting entries.",
+      "Rules must be tenant-scoped and auditable with last-run and action payload history.",
+      "Critical finance actions should route to approvals rather than auto-approve."
+    ],
+    linkedFlows: [
+      { title: "Exception Queue", description: "Review automation-generated exceptions.", href: "/exception-queue" },
+      { title: "Approvals", description: "Review maker-checker routed records.", href: "/approvals" },
+      { title: "Audit Trail", description: "Trace rule activity.", href: "/audit-trail" }
+    ]
+  },
+  "close-management": {
+    title: "Close Management",
+    description: "Month-end close dashboard for reconciliation, GST, approvals, accruals, and period locks.",
+    metrics: [
+      { label: "Open close tasks", value: 8, helper: "Tasks remaining before period lock" },
+      { label: "Blocked tasks", value: 2, helper: "Need approvals or reconciliation" },
+      { label: "Ready to lock", value: "No", helper: "Resolve blockers first" },
+      { label: "Close progress", value: "62%", helper: "Completed month-end checklist" }
+    ],
+    queues: [
+      { title: "Complete bank reconciliation", description: "Ensure all bank accounts are reconciled through period end.", status: "Banking", href: "/bank-accounts" },
+      { title: "Clear approval queue", description: "Approve or reject draft bills, journals, and overrides before locking.", status: "Approvals", href: "/approvals" },
+      { title: "Lock closed period", description: "Activate period lock after reports and GST readiness are reviewed.", status: "Close", href: "/period-locks" }
+    ],
+    operatingRules: [
+      "Close tasks should be role-owned and dated for accountability.",
+      "Periods should not lock while critical exceptions remain open.",
+      "Override requests after close must route through approval and audit logs."
+    ],
+    linkedFlows: [
+      { title: "Period Locks", description: "Lock and protect closed periods.", href: "/period-locks" },
+      { title: "Audit Trail", description: "Review close and override activity.", href: "/audit-trail" },
+      { title: "Reports", description: "Finalize financial statements.", href: "/reports" }
+    ]
+  },
+  "finance-copilot": {
+    title: "Finance Copilot Insights",
+    description: "Non-chat finance insight surface for anomalies, reminders, compliance blockers, and suggested actions.",
+    metrics: [
+      { label: "Open insights", value: 5, helper: "Suggestions waiting for review" },
+      { label: "Critical", value: 1, helper: "High-impact finance issue" },
+      { label: "Accepted this month", value: 3, helper: "Insights converted to actions" },
+      { label: "Dismissed", value: 1, helper: "User rejected suggestions" }
+    ],
+    queues: [
+      { title: "Review anomaly insights", description: "Inspect unusual expense, margin, and cash movement patterns.", status: "Anomaly", href: "/exception-queue" },
+      { title: "Convert insights to tasks", description: "Create approvals, close tasks, or exceptions from reviewed insights.", status: "Action", href: "/approvals" },
+      { title: "Track insight decisions", description: "Accepted and dismissed insights are retained for audit learning.", status: "Audit", href: "/audit-trail" }
+    ],
+    operatingRules: [
+      "Copilot insights are recommendations, not automatic accounting postings.",
+      "Insights should be explainable and link to source records.",
+      "User decisions on insights should be stored for audit and future tuning."
+    ],
+    linkedFlows: [
+      { title: "Exception Queue", description: "Convert insights into tracked exceptions.", href: "/exception-queue" },
+      { title: "Rules Engine", description: "Automate repeated insight conditions.", href: "/rules-engine" },
+      { title: "Audit Trail", description: "Track accepted/dismissed insights.", href: "/audit-trail" }
+    ]
   }
 };
 

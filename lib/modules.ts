@@ -106,7 +106,8 @@ export const navigationGroups: { label: string; items: NavItem[] }[] = [
       { title: "Day Book", href: "/day-book", icon: ClipboardList },
       { title: "Journal Entries", href: "/journal-entries", icon: Calculator },
       { title: "Bank Accounts", href: "/bank-accounts", icon: Landmark },
-      { title: "Payments Operations", href: "/payment-operations", icon: CreditCard }
+      { title: "Payments Operations", href: "/payment-operations", icon: CreditCard },
+      { title: "Close Management", href: "/close-management", icon: ShieldCheck }
     ]
   },
   {
@@ -151,6 +152,8 @@ export const navigationGroups: { label: string; items: NavItem[] }[] = [
       { title: "Imports", href: "/imports", icon: Upload },
       { title: "Migration Center", href: "/migration-center", icon: Upload },
       { title: "OCR Bills", href: "/ocr-bills", icon: ScanText },
+      { title: "Rules Engine", href: "/rules-engine", icon: Settings },
+      { title: "Finance Copilot", href: "/finance-copilot", icon: ChartNoAxesCombined },
       { title: "Approvals", href: "/approvals", icon: ShieldCheck },
       { title: "Audit Trail", href: "/audit-trail", icon: ClipboardList },
       { title: "Period Locks", href: "/period-locks", icon: ShieldCheck },
