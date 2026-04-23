@@ -58,6 +58,20 @@ function mergeTickets(primary: SupportTicket[], incoming: SupportTicket[]) {
   );
 }
 
+async function parseJsonResponse<T>(response: Response, fallbackMessage: string) {
+  const text = await response.text();
+  if (!text.trim()) {
+    return { error: { message: fallbackMessage } } as T;
+  }
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    const preview = text.replace(/\s+/g, " ").slice(0, 140);
+    return { error: { message: `${fallbackMessage}${preview ? ` Server returned: ${preview}` : ""}` } } as T;
+  }
+}
+
 export function FloatingSupportChat({
   token,
   customerName
@@ -78,7 +92,10 @@ export function FloatingSupportChat({
     enabled: isOpen,
     queryFn: async () => {
       const response = await fetch(`/api/public/chat/${token}`);
-      const payload = (await response.json()) as { data?: ChatState; error?: { message?: string } };
+      const payload = await parseJsonResponse<{ data?: ChatState; error?: { message?: string } }>(
+        response,
+        "Support chat returned an empty response."
+      );
       if (!response.ok) {
         throw new Error(payload.error?.message ?? "Support chat could not be loaded.");
       }
@@ -127,10 +144,10 @@ export function FloatingSupportChat({
         body: JSON.stringify({ message: trimmed })
       });
 
-      const payload = (await response.json()) as {
+      const payload = await parseJsonResponse<{
         error?: { message?: string };
         data?: SendMessageResponse;
-      };
+      }>(response, "Support message returned an empty response.");
 
       if (!response.ok) {
         throw new Error(payload.error?.message ?? "Support message could not be sent.");
