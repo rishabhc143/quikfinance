@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LifeBuoy, MessageCircle, Send, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,13 @@ type ChatState = {
   tickets: SupportTicket[];
 };
 
+type SendMessageResponse = {
+  user_message: SupportMessage;
+  assistant_message: SupportMessage;
+  ticket: SupportTicket | null;
+  configured: boolean;
+};
+
 const quickPrompts = [
   "Show my latest invoice",
   "How can I pay?",
@@ -48,9 +55,11 @@ export function FloatingSupportChat({
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const queryClient = useQueryClient();
+  const chatQueryKey = ["floating-portal-support-chat", token] as const;
 
   const chat = useQuery({
-    queryKey: ["floating-portal-support-chat", token],
+    queryKey: chatQueryKey,
     enabled: isOpen,
     queryFn: async () => {
       const response = await fetch(`/api/public/chat/${token}`);
@@ -69,7 +78,7 @@ export function FloatingSupportChat({
     if (isOpen) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
     }
-  }, [isOpen, visibleMessages.length]);
+  }, [isOpen, visibleMessages.length, isSending]);
 
   const sendMessage = async () => {
     const trimmed = message.trim();
@@ -88,7 +97,7 @@ export function FloatingSupportChat({
 
       const payload = (await response.json()) as {
         error?: { message?: string };
-        data?: { ticket?: SupportTicket | null };
+        data?: SendMessageResponse;
       };
 
       if (!response.ok) {
@@ -96,10 +105,30 @@ export function FloatingSupportChat({
       }
 
       setMessage("");
+      if (payload.data?.user_message && payload.data?.assistant_message) {
+        queryClient.setQueryData<ChatState>(chatQueryKey, (current) => {
+          const existingMessages = current?.messages ?? [];
+          const nextMessages = [payload.data!.user_message, payload.data!.assistant_message].reduce<SupportMessage[]>(
+            (messages, item) => (messages.some((messageItem) => messageItem.id === item.id) ? messages : [...messages, item]),
+            existingMessages
+          );
+          const existingTickets = current?.tickets ?? [];
+          const nextTickets =
+            payload.data!.ticket && !existingTickets.some((ticket) => ticket.id === payload.data!.ticket?.id)
+              ? [payload.data!.ticket, ...existingTickets]
+              : existingTickets;
+
+          return {
+            configured: payload.data!.configured,
+            messages: nextMessages,
+            tickets: nextTickets
+          };
+        });
+      }
       if (payload.data?.ticket?.ticket_number) {
         toast.success(`Support ticket ${payload.data.ticket.ticket_number} created`);
       }
-      await chat.refetch();
+      void chat.refetch();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Support message could not be sent.");
     } finally {
@@ -149,22 +178,30 @@ export function FloatingSupportChat({
                   Loading support chat...
                 </div>
               ) : visibleMessages.length > 0 ? (
-                visibleMessages.map((item) => (
-                  <div
-                    key={item.id}
-                    className={cn(
-                      "max-w-[88%] rounded-2xl px-4 py-3 text-sm shadow-sm",
-                      item.role === "user"
-                        ? "ml-auto bg-primary text-primary-foreground"
-                        : "bg-background text-foreground"
-                    )}
-                  >
-                    <p className="text-xs font-semibold opacity-80">
-                      {item.role === "user" ? customerName : item.role === "assistant" ? "Support Assistant" : "System"}
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap leading-relaxed">{item.body}</p>
-                  </div>
-                ))
+                <>
+                  {visibleMessages.map((item) => (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "max-w-[88%] rounded-2xl px-4 py-3 text-sm shadow-sm",
+                        item.role === "user"
+                          ? "ml-auto bg-primary text-primary-foreground"
+                          : "bg-background text-foreground"
+                      )}
+                    >
+                      <p className="text-xs font-semibold opacity-80">
+                        {item.role === "user" ? customerName : item.role === "assistant" ? "Support Assistant" : "System"}
+                      </p>
+                      <p className="mt-1 whitespace-pre-wrap leading-relaxed">{item.body}</p>
+                    </div>
+                  ))}
+                  {isSending ? (
+                    <div className="max-w-[88%] rounded-2xl bg-background px-4 py-3 text-sm text-muted-foreground shadow-sm">
+                      <p className="text-xs font-semibold opacity-80">Support Assistant</p>
+                      <p className="mt-1">Thinking and checking your account...</p>
+                    </div>
+                  ) : null}
+                </>
               ) : (
                 <div className="rounded-2xl bg-background p-4 text-sm text-muted-foreground shadow-sm">
                   Hi {customerName}, ask me about invoices, payments, statements, orders, refunds, or any billing issue.
@@ -212,7 +249,7 @@ export function FloatingSupportChat({
                 <p className="text-xs text-muted-foreground">Press Enter to send. Shift + Enter for a new line.</p>
                 <Button onClick={sendMessage} disabled={isSending || message.trim().length < 2} className="gap-2">
                   <Send className="h-4 w-4" />
-                  {isSending ? "Sending" : "Send"}
+                  {isSending ? "Sending..." : "Send"}
                 </Button>
               </div>
             </div>
