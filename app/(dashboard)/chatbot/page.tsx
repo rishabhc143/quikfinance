@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MessageCircle, ExternalLink } from "lucide-react";
+import { FloatingSupportChat } from "@/components/portals/FloatingSupportChat";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,9 @@ export default async function ChatbotPage() {
                 <p className="mt-1 text-sm text-muted-foreground">{portal?.email ?? "Customer email not set"}</p>
                 <p className="mt-3 break-all rounded-xl bg-background p-3 text-xs text-muted-foreground">{portalUrl}</p>
               </div>
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+                You should also see the floating chatbot button at the bottom-right of this page. Click <strong>Need help?</strong> to test it.
+              </div>
               <Button asChild>
                 <Link href={portalUrl} target="_blank">
                   Open Chatbot
@@ -78,6 +82,9 @@ export default async function ChatbotPage() {
           )}
         </CardContent>
       </Card>
+      {portal?.access_token ? (
+        <FloatingSupportChat token={portal.access_token} customerName={portal.display_name ?? "Customer"} />
+      ) : null}
     </div>
   );
 }
