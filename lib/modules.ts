@@ -15,7 +15,6 @@ import {
   FileBarChart,
   FileText,
   Landmark,
-  MessageCircle,
   Package,
   Receipt,
   Repeat2,
@@ -131,7 +130,6 @@ export const navigationGroups: { label: string; items: NavItem[] }[] = [
     label: "Automation",
     items: [
       { title: "Imports", href: "/imports", icon: Upload },
-      { title: "Chatbot", href: "/chatbot", icon: MessageCircle },
       { title: "OCR Bills", href: "/ocr-bills", icon: ScanText },
       { title: "Period Locks", href: "/period-locks", icon: ShieldCheck },
       { title: "Integrations", href: "/integrations", icon: Cable }

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { FloatingSupportChat } from "@/components/portals/FloatingSupportChat";
 import { notFound } from "next/navigation";
 import { PortalComments } from "@/components/portals/PortalComments";
 import { PortalShell } from "@/components/portals/PortalShell";
@@ -80,7 +79,6 @@ export default async function CustomerPortalPage({ params }: { params: { token: 
           </Card>
         </div>
       </div>
-      <FloatingSupportChat token={params.token} customerName={payload.customer?.display_name ?? "Customer"} />
     </PortalShell>
   );
 }
