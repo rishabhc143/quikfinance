@@ -11,7 +11,7 @@ export function Sidebar({ mobile = false }: { mobile?: boolean }) {
   const { t } = useI18n();
 
   return (
-    <aside className={cn("h-screen w-72 shrink-0 border-r bg-card/95 px-4 py-5", mobile ? "block" : "hidden lg:sticky lg:top-0 lg:block")}>
+    <aside className={cn("h-screen w-72 shrink-0 overflow-y-auto border-r bg-card/95 px-4 py-5", mobile ? "block" : "hidden lg:sticky lg:top-0 lg:block")}>
       <Link href="/" className="flex items-center gap-3 px-2">
         <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">QF</span>
         <span>

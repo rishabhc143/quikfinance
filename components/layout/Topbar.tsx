@@ -82,8 +82,18 @@ export function Topbar() {
             </Button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Content align="end" className="z-50 min-w-44 rounded-lg border bg-card p-1 shadow-soft">
-            <DropdownMenu.Item className="rounded-md px-3 py-2 text-sm outline-none hover:bg-muted">{t("topbar.profile", "Profile")}</DropdownMenu.Item>
-            <DropdownMenu.Item className="rounded-md px-3 py-2 text-sm outline-none hover:bg-muted">{t("topbar.settings", "Settings")}</DropdownMenu.Item>
+            <DropdownMenu.Item
+              onSelect={() => router.push("/settings/users")}
+              className="cursor-pointer rounded-md px-3 py-2 text-sm outline-none hover:bg-muted"
+            >
+              {t("topbar.profile", "Profile")}
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              onSelect={() => router.push("/settings")}
+              className="cursor-pointer rounded-md px-3 py-2 text-sm outline-none hover:bg-muted"
+            >
+              {t("topbar.settings", "Settings")}
+            </DropdownMenu.Item>
             <DropdownMenu.Sub>
               <DropdownMenu.SubTrigger className="flex w-full items-center rounded-md px-3 py-2 text-sm outline-none hover:bg-muted">
                 <Globe2 className="mr-2 h-4 w-4" />
