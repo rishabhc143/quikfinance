@@ -1,6 +1,6 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { ModulePage } from "@/components/shared/ModulePage";
+import { getModuleConfig } from "@/lib/modules";
 
 export default function BankFeedsPage() {
-  return <WorkflowPage config={getWorkflowPage("bank-feeds")} />;
+  return <ModulePage config={getModuleConfig("bank-feeds")} />;
 }

@@ -726,6 +726,241 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
       { name: "is_active", label: "Active", type: "checkbox" }
     ]
   },
+  "bank-feeds": {
+    key: "bank-feeds",
+    title: "Bank Feeds",
+    entityName: "bank feed",
+    description: "Import and review bank statement feeds before reconciliation and exception handling.",
+    apiPath: "/api/v1/bank-feeds",
+    newPath: "/bank-feeds/new",
+    primaryAction: "New bank feed",
+    columns: [
+      { key: "feed_name", label: "Feed" },
+      { key: "source_type", label: "Source" },
+      { key: "imported_on", label: "Imported", kind: "date" },
+      { key: "line_count", label: "Lines", kind: "number", align: "right" },
+      { key: "closing_balance", label: "Closing balance", kind: "money", align: "right" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [
+      { id: "feed-1", feed_name: "HDFC Main Account Apr 2026", source_type: "upload", imported_on: today, line_count: 184, closing_balance: money(245800), status: "pending_review" }
+    ],
+    formFields: [
+      { name: "bank_account_id", label: "Bank account ID", type: "text" },
+      { name: "feed_name", label: "Feed name", type: "text", required: true },
+      {
+        name: "source_type",
+        label: "Source type",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Upload", value: "upload" },
+          { label: "API", value: "api" },
+          { label: "Manual", value: "manual" }
+        ]
+      },
+      { name: "imported_on", label: "Imported on", type: "date", required: true },
+      { name: "statement_date", label: "Statement date", type: "date", required: true },
+      { name: "opening_balance", label: "Opening balance", type: "money", required: true },
+      { name: "closing_balance", label: "Closing balance", type: "money", required: true },
+      { name: "line_count", label: "Line count", type: "number", required: true },
+      {
+        name: "currency",
+        label: "Currency",
+        type: "select",
+        options: [
+          { label: "INR", value: "INR" },
+          { label: "USD", value: "USD" }
+        ]
+      },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Pending review", value: "pending_review" },
+          { label: "Processing", value: "processing" },
+          { label: "Reconciled", value: "reconciled" },
+          { label: "Error", value: "error" }
+        ]
+      },
+      { name: "notes", label: "Notes", type: "textarea" }
+    ]
+  },
+  "delivery-dispatch": {
+    key: "delivery-dispatch",
+    title: "Delivery / Dispatch",
+    entityName: "dispatch",
+    description: "Manage shipment releases, proof status, and sales-order fulfillment movement.",
+    apiPath: "/api/v1/delivery-dispatch",
+    newPath: "/delivery-dispatch/new",
+    primaryAction: "New dispatch",
+    columns: [
+      { key: "dispatch_number", label: "Dispatch" },
+      { key: "dispatch_date", label: "Date", kind: "date" },
+      { key: "carrier_name", label: "Carrier" },
+      { key: "tracking_number", label: "Tracking" },
+      { key: "shipped_value", label: "Shipped value", kind: "money", align: "right" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [
+      { id: "disp-1", dispatch_number: "DSP-100201", dispatch_date: today, carrier_name: "BlueDart", tracking_number: "AWB-998812", shipped_value: money(18200), status: "shipped" }
+    ],
+    formFields: [
+      { name: "sales_order_id", label: "Sales order ID", type: "text" },
+      { name: "customer_id", label: "Customer ID", type: "text" },
+      { name: "warehouse_id", label: "Warehouse ID", type: "text" },
+      { name: "dispatch_date", label: "Dispatch date", type: "date", required: true },
+      { name: "carrier_name", label: "Carrier name", type: "text", required: true },
+      { name: "tracking_number", label: "Tracking number", type: "text" },
+      { name: "shipped_value", label: "Shipped value", type: "money", required: true },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Draft", value: "draft" },
+          { label: "Packed", value: "packed" },
+          { label: "Shipped", value: "shipped" },
+          { label: "Delivered", value: "delivered" },
+          { label: "Cancelled", value: "cancelled" }
+        ]
+      },
+      {
+        name: "proof_status",
+        label: "Proof status",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Pending", value: "pending" },
+          { label: "Received", value: "received" },
+          { label: "Not required", value: "not_required" }
+        ]
+      },
+      { name: "notes", label: "Notes", type: "textarea" }
+    ]
+  },
+  "e-invoicing": {
+    key: "e-invoicing",
+    title: "E-Invoicing",
+    entityName: "e-invoice submission",
+    description: "Track IRN generation submissions, acknowledgements, and failed compliance payloads.",
+    apiPath: "/api/v1/e-invoicing",
+    newPath: "/e-invoicing/new",
+    primaryAction: "New submission",
+    columns: [
+      { key: "submission_number", label: "Submission" },
+      { key: "invoice_number", label: "Invoice" },
+      { key: "submission_date", label: "Submitted", kind: "date" },
+      { key: "taxable_value", label: "Taxable value", kind: "money", align: "right" },
+      { key: "irn", label: "IRN" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [
+      { id: "einv-1", submission_number: "EINV-448812", invoice_number: "INV-240401", submission_date: today, taxable_value: money(10000), irn: "IRN-DEMO-001", status: "generated" }
+    ],
+    formFields: [
+      { name: "invoice_id", label: "Invoice ID", type: "text" },
+      { name: "invoice_number", label: "Invoice number", type: "text", required: true },
+      { name: "submission_date", label: "Submission date", type: "date", required: true },
+      { name: "taxable_value", label: "Taxable value", type: "money", required: true },
+      { name: "total_tax", label: "Total tax", type: "money", required: true },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Draft", value: "draft" },
+          { label: "Queued", value: "queued" },
+          { label: "Submitted", value: "submitted" },
+          { label: "Generated", value: "generated" },
+          { label: "Failed", value: "failed" },
+          { label: "Cancelled", value: "cancelled" }
+        ]
+      },
+      { name: "irn", label: "IRN", type: "text" },
+      { name: "ack_number", label: "Acknowledgement number", type: "text" },
+      { name: "ack_date", label: "Acknowledgement date", type: "date" },
+      { name: "error_message", label: "Error message", type: "textarea" }
+    ]
+  },
+  "tds-tcs": {
+    key: "tds-tcs",
+    title: "TDS / TCS",
+    entityName: "tax record",
+    description: "Maintain withholding and collection tax records across bills, invoices, payments, and review cycles.",
+    apiPath: "/api/v1/tds-tcs",
+    newPath: "/tds-tcs/new",
+    primaryAction: "New tax record",
+    columns: [
+      { key: "section_code", label: "Section" },
+      { key: "tax_kind", label: "Kind" },
+      { key: "transaction_type", label: "Transaction" },
+      { key: "assessment_date", label: "Assessment", kind: "date" },
+      { key: "tax_amount", label: "Tax amount", kind: "money", align: "right" },
+      { key: "status", label: "Status", kind: "status" }
+    ],
+    rows: [
+      { id: "tds-1", section_code: "194C", tax_kind: "tds", transaction_type: "bill", assessment_date: today, tax_amount: money(860), status: "review" }
+    ],
+    formFields: [
+      { name: "section_code", label: "Section code", type: "text", required: true },
+      {
+        name: "tax_kind",
+        label: "Tax kind",
+        type: "select",
+        required: true,
+        options: [
+          { label: "TDS", value: "tds" },
+          { label: "TCS", value: "tcs" }
+        ]
+      },
+      {
+        name: "transaction_type",
+        label: "Transaction type",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Bill", value: "bill" },
+          { label: "Invoice", value: "invoice" },
+          { label: "Payment", value: "payment" },
+          { label: "Journal", value: "journal" }
+        ]
+      },
+      { name: "transaction_id", label: "Transaction ID", type: "text" },
+      {
+        name: "party_type",
+        label: "Party type",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Vendor", value: "vendor" },
+          { label: "Customer", value: "customer" }
+        ]
+      },
+      { name: "party_id", label: "Party ID", type: "text" },
+      { name: "assessment_date", label: "Assessment date", type: "date", required: true },
+      { name: "base_amount", label: "Base amount", type: "money", required: true },
+      { name: "tax_rate", label: "Tax rate", type: "number", required: true },
+      { name: "tax_amount", label: "Tax amount", type: "money", required: true },
+      {
+        name: "status",
+        label: "Status",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Draft", value: "draft" },
+          { label: "Review", value: "review" },
+          { label: "Posted", value: "posted" },
+          { label: "Filed", value: "filed" }
+        ]
+      },
+      { name: "notes", label: "Notes", type: "textarea" }
+    ]
+  },
   budgets: {
     key: "budgets",
     title: "Budgets",

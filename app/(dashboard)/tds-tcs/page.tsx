@@ -1,6 +1,6 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { ModulePage } from "@/components/shared/ModulePage";
+import { getModuleConfig } from "@/lib/modules";
 
 export default function TdsTcsPage() {
-  return <WorkflowPage config={getWorkflowPage("tds-tcs")} />;
+  return <ModulePage config={getModuleConfig("tds-tcs")} />;
 }

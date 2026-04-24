@@ -1,6 +1,6 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { ModulePage } from "@/components/shared/ModulePage";
+import { getModuleConfig } from "@/lib/modules";
 
 export default function EInvoicingPage() {
-  return <WorkflowPage config={getWorkflowPage("e-invoicing")} />;
+  return <ModulePage config={getModuleConfig("e-invoicing")} />;
 }
