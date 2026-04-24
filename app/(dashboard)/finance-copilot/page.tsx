@@ -1,6 +1,11 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { FinanceCopilotWorkspace } from "@/components/workflows/FinanceCopilotWorkspace";
 
 export default function Page() {
-  return <WorkflowPage config={getWorkflowPage("finance-copilot")} workflowKey="finance-copilot" />;
+  return (
+    <div className="space-y-6 animate-fade-up">
+      <PageHeader title="Finance Copilot" description="Live insight review surface for anomalies, recommendations, and tracked decisions." />
+      <FinanceCopilotWorkspace />
+    </div>
+  );
 }
