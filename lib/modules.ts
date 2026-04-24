@@ -99,7 +99,7 @@ export const navigationGroups: NavigationGroup[] = [
       { title: "Customers", href: "/customers", icon: Users },
       { title: "Quotations", href: "/quotations", icon: FileText },
       { title: "Sales Orders", href: "/sales-orders", icon: ClipboardList },
-      { title: "Delivery / Dispatch", href: "/sales-orders", icon: Truck },
+      { title: "Delivery / Dispatch", href: "/delivery-dispatch", icon: Truck },
       { title: "Invoices", href: "/invoices", icon: FileText },
       { title: "Credit Notes", href: "/credit-notes", icon: Repeat2 },
       { title: "Payments Received", href: "/payments/received", icon: CircleDollarSign },
@@ -124,11 +124,11 @@ export const navigationGroups: NavigationGroup[] = [
     icon: Landmark,
     items: [
       { title: "Bank Accounts", href: "/bank-accounts", icon: Landmark },
-      { title: "Bank Feeds", href: "/bank-accounts", icon: Activity },
+      { title: "Bank Feeds", href: "/bank-feeds", icon: Activity },
       { title: "Reconciliation", href: "/bank-accounts", icon: FileSearch },
-      { title: "Transfers", href: "/payment-operations", icon: ArrowLeftRight },
-      { title: "Payment Gateways", href: "/integrations", icon: Cable },
-      { title: "Settlements", href: "/payment-operations", icon: CreditCard }
+      { title: "Transfers", href: "/transfers", icon: ArrowLeftRight },
+      { title: "Payment Gateways", href: "/payment-gateways", icon: Cable },
+      { title: "Settlements", href: "/settlements", icon: CreditCard }
     ]
   },
   {
@@ -164,9 +164,9 @@ export const navigationGroups: NavigationGroup[] = [
       { title: "GSTR-1", href: "/reports/gstr-1", icon: FileSpreadsheet },
       { title: "GSTR-3B", href: "/reports/gstr-3b", icon: FileSpreadsheet },
       { title: "GSTR-2B / ITC", href: "/itc-reconciliation", icon: Tags },
-      { title: "E-Invoicing", href: "/gst-command-center", icon: FileText },
-      { title: "E-Way Bill", href: "/gst-command-center", icon: Truck },
-      { title: "TDS/TCS", href: "/gst-command-center", icon: Receipt }
+      { title: "E-Invoicing", href: "/e-invoicing", icon: FileText },
+      { title: "E-Way Bill", href: "/e-way-bill", icon: Truck },
+      { title: "TDS/TCS", href: "/tds-tcs", icon: Receipt }
     ]
   },
   {
@@ -203,7 +203,7 @@ export const navigationGroups: NavigationGroup[] = [
       { title: "Taxes", href: "/settings/taxes", icon: Tags },
       { title: "Currencies", href: "/settings/currencies", icon: Banknote },
       { title: "Roles & Permissions", href: "/settings/users", icon: ShieldCheck },
-      { title: "Templates", href: "/settings", icon: FileText },
+      { title: "Templates", href: "/templates", icon: FileText },
       { title: "Portals", href: "/settings/portals", icon: Webhook }
     ]
   }

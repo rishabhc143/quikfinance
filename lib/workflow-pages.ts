@@ -515,6 +515,231 @@ export const workflowPages: Record<string, WorkflowConfig> = {
       { title: "Rules Engine", description: "Automate repeated insight conditions.", href: "/rules-engine" },
       { title: "Audit Trail", description: "Track accepted/dismissed insights.", href: "/audit-trail" }
     ]
+  },
+  "bank-feeds": {
+    title: "Bank Feeds",
+    description: "Monitor imported statement lines, feed health, auto-categorization, and pending review items.",
+    metrics: [
+      { label: "Connected feeds", value: 2, helper: "Active bank sources mapped to accounts" },
+      { label: "Unreviewed lines", value: 11, helper: "Statement lines pending categorization or match" },
+      { label: "Auto-match rate", value: "73%", helper: "Statement lines matched automatically" },
+      { label: "Feed delays", value: 1, helper: "Bank source needing reconnect or upload" }
+    ],
+    queues: [
+      { title: "Import latest statement", description: "Pull the newest bank file or API feed before reconciliation.", status: "Daily ops", href: "/bank-accounts" },
+      { title: "Review unmatched lines", description: "Categorize bank transactions not linked to invoices, bills, or transfers.", status: "Reconciliation", href: "/exception-queue" },
+      { title: "Check feed connectivity", description: "Resolve token expiry, upload issues, or duplicate feed imports.", status: "Control", href: "/integrations" }
+    ],
+    operatingRules: [
+      "Feed lines should remain immutable once imported; reconciliation creates linked records instead of editing source lines.",
+      "Duplicate bank feed imports should be blocked using bank reference, amount, and date heuristics.",
+      "Feed ingestion should log import source, user, and retry history for auditability."
+    ],
+    linkedFlows: [
+      { title: "Bank Accounts", description: "Bank masters and balances.", href: "/bank-accounts" },
+      { title: "Reconciliation", description: "Match statement lines to books.", href: "/bank-accounts" },
+      { title: "Exception Queue", description: "Resolve banking mismatches.", href: "/exception-queue" }
+    ]
+  },
+  "delivery-dispatch": {
+    title: "Delivery / Dispatch",
+    description: "Coordinate sales-order fulfillment, dispatch confirmation, stock release, and proof-of-delivery control.",
+    metrics: [
+      { label: "Ready to dispatch", value: 4, helper: "Approved sales orders awaiting shipment" },
+      { label: "Partial deliveries", value: 1, helper: "Orders with remaining quantity" },
+      { label: "Dispatch blocked", value: 2, helper: "Stock or approval issue before shipment" },
+      { label: "Proof pending", value: 3, helper: "Dispatches awaiting delivery confirmation" }
+    ],
+    queues: [
+      { title: "Pick and pack orders", description: "Release stock only for approved, in-stock sales orders.", status: "Warehouse", href: "/sales-orders" },
+      { title: "Confirm dispatch", description: "Capture courier, vehicle, dispatch date, and shipped quantity.", status: "Logistics", href: "/stock-movements" },
+      { title: "Raise invoice after dispatch", description: "Create invoice after delivery milestone where process requires shipment-first billing.", status: "Revenue", href: "/invoices/new" }
+    ],
+    operatingRules: [
+      "Dispatch should reduce stock only when shipment is confirmed, not when the sales order is merely approved.",
+      "Partial deliveries must preserve balance quantity and delivery status on the source sales order.",
+      "Proof-of-delivery records should be retained for dispute handling and revenue traceability."
+    ],
+    linkedFlows: [
+      { title: "Sales Orders", description: "Source orders for fulfillment.", href: "/sales-orders" },
+      { title: "Stock Movements", description: "Inventory issue and dispatch posting.", href: "/stock-movements" },
+      { title: "Invoices", description: "Bill completed dispatches.", href: "/invoices" }
+    ]
+  },
+  transfers: {
+    title: "Transfers",
+    description: "Control inter-bank, cash-to-bank, and settlement-clearing transfers with clear source and destination tracking.",
+    metrics: [
+      { label: "Pending transfers", value: 3, helper: "Awaiting destination confirmation or reconciliation" },
+      { label: "Internal bank moves", value: 2, helper: "Treasury transfers in progress" },
+      { label: "Cash sweeps", value: 1, helper: "Cash deposit or withdrawal movements" },
+      { label: "Exceptions", value: 1, helper: "Transfer mismatch requiring review" }
+    ],
+    queues: [
+      { title: "Initiate transfer", description: "Record source account, destination account, amount, and transfer purpose.", status: "Treasury", href: "/bank-accounts" },
+      { title: "Match both sides", description: "Ensure debit and credit entries exist across source and destination books.", status: "Accounting", href: "/bank-accounts" },
+      { title: "Review failed transfers", description: "Resolve reference mismatches, duplicate postings, or settlement delays.", status: "Control", href: "/exception-queue" }
+    ],
+    operatingRules: [
+      "Internal transfers should not create income or expense impact unless fees or FX differences apply.",
+      "Both source and destination bank movements should share a common transfer reference for matching.",
+      "Transfer reversals must preserve the original audit trail rather than overwrite the initial posting."
+    ],
+    linkedFlows: [
+      { title: "Bank Accounts", description: "Source and destination accounts.", href: "/bank-accounts" },
+      { title: "Payment Operations", description: "Gateway and settlement clearing views.", href: "/payment-operations" },
+      { title: "Audit Trail", description: "Trace transfer changes.", href: "/audit-trail" }
+    ]
+  },
+  "payment-gateways": {
+    title: "Payment Gateways",
+    description: "Manage gateway connectivity, webhook health, payout flows, and payment-link configuration.",
+    metrics: [
+      { label: "Connected gateways", value: 1, helper: "Razorpay production integration status" },
+      { label: "Webhook success", value: "100%", helper: "Latest processed gateway events" },
+      { label: "Pending payouts", value: 2, helper: "Collections awaiting settlement" },
+      { label: "Sync alerts", value: 0, helper: "No webhook delivery failures" }
+    ],
+    queues: [
+      { title: "Review webhook events", description: "Track payment, refund, and settlement event processing.", status: "Integration", href: "/payment-operations" },
+      { title: "Validate credentials", description: "Confirm active gateway keys and environment alignment.", status: "Admin", href: "/integrations" },
+      { title: "Check payment-link activity", description: "Ensure invoice-linked collections are generating and syncing correctly.", status: "Collections", href: "/invoices" }
+    ],
+    operatingRules: [
+      "Gateway secrets must remain server-side and never enter browser bundles.",
+      "Webhook verification must happen before applying any payment or refund status changes.",
+      "Gateway connectivity changes should create audit entries because they affect cash collection operations."
+    ],
+    linkedFlows: [
+      { title: "Integrations", description: "Connection and credential setup.", href: "/integrations" },
+      { title: "Payment Operations", description: "Settlement and fee accounting.", href: "/payment-operations" },
+      { title: "Invoices", description: "Payment-link source documents.", href: "/invoices" }
+    ]
+  },
+  settlements: {
+    title: "Settlements",
+    description: "Track gateway payouts, fees, taxes, refunds, and bank-credit matching for final cash realization.",
+    metrics: [
+      { label: "Pending settlements", value: 2, helper: "Gateway payouts not fully matched to bank" },
+      { label: "Gross collections", value: 1180, helper: "Amount before fees and taxes" },
+      { label: "Gateway fees", value: 24, helper: "Charges to recognize" },
+      { label: "Net credit", value: 1151.68, helper: "Expected bank realization" }
+    ],
+    queues: [
+      { title: "Review payout files", description: "Compare provider payout details with receipt and refund activity.", status: "Gateway", href: "/payment-operations" },
+      { title: "Match bank credit", description: "Link settlement net amount to the corresponding bank transaction.", status: "Banking", href: "/bank-accounts" },
+      { title: "Post fees and taxes", description: "Recognize provider charges and taxes separately from customer receipts.", status: "Accounting", href: "/journal-entries" }
+    ],
+    operatingRules: [
+      "Settlements should separate gross receipt, fee expense, tax on fee, and net bank credit.",
+      "Refunds should adjust settlement expectations and customer payment balances consistently.",
+      "Unmatched settlements must remain visible until bank credit and fee posting are complete."
+    ],
+    linkedFlows: [
+      { title: "Payment Operations", description: "Gateway operations and raw payout data.", href: "/payment-operations" },
+      { title: "Bank Accounts", description: "Bank-credit confirmation.", href: "/bank-accounts" },
+      { title: "Journal Entries", description: "Fee and clearing postings.", href: "/journal-entries" }
+    ]
+  },
+  "e-invoicing": {
+    title: "E-Invoicing",
+    description: "Prepare invoice data for IRN generation, acknowledgment tracking, and compliance-ready outbound documents.",
+    metrics: [
+      { label: "IRN ready", value: 5, helper: "Invoices meeting e-invoice validation rules" },
+      { label: "IRN failed", value: 1, helper: "Invoices blocked by validation or payload issues" },
+      { label: "Ack pending", value: 2, helper: "Awaiting final compliance response" },
+      { label: "Master data gaps", value: 3, helper: "GSTIN, HSN, or address corrections needed" }
+    ],
+    queues: [
+      { title: "Validate invoice payload", description: "Check GSTIN, item tax, address, place of supply, and document totals.", status: "Compliance", href: "/gst-command-center" },
+      { title: "Resolve IRN failures", description: "Fix rejected invoice payloads before re-submission.", status: "Retry", href: "/exception-queue" },
+      { title: "Store acknowledgment data", description: "Retain IRN, ack number, QR response, and submission timestamps.", status: "Audit", href: "/documents" }
+    ],
+    operatingRules: [
+      "Only posted invoices eligible under current regulation should enter the e-invoicing submission queue.",
+      "IRN response metadata should be stored immutably against the source invoice.",
+      "Any cancellation or amendment must preserve the original submission history."
+    ],
+    linkedFlows: [
+      { title: "Invoices", description: "Source sales invoices.", href: "/invoices" },
+      { title: "GST Command Center", description: "Compliance readiness checks.", href: "/gst-command-center" },
+      { title: "Exception Queue", description: "Submission blockers and retry issues.", href: "/exception-queue" }
+    ]
+  },
+  "e-way-bill": {
+    title: "E-Way Bill",
+    description: "Coordinate transport data, shipment thresholds, and dispatch-linked e-way bill readiness.",
+    metrics: [
+      { label: "Ready shipments", value: 3, helper: "Dispatches with enough data for e-way processing" },
+      { label: "Transport gaps", value: 2, helper: "Vehicle, distance, or transporter details missing" },
+      { label: "Expired documents", value: 0, helper: "No expired e-way references in review" },
+      { label: "Blocked dispatches", value: 1, helper: "Shipment held for compliance correction" }
+    ],
+    queues: [
+      { title: "Add transport details", description: "Capture vehicle, transporter, distance, and dispatch branch data.", status: "Logistics", href: "/delivery-dispatch" },
+      { title: "Validate shipment eligibility", description: "Check threshold, invoice linkage, and state movement rules.", status: "Compliance", href: "/gst-command-center" },
+      { title: "Release dispatch", description: "Allow shipment after transport and invoice references are complete.", status: "Ops", href: "/delivery-dispatch" }
+    ],
+    operatingRules: [
+      "E-way bill readiness should be tied to actual dispatch and invoice context, not just order creation.",
+      "Transport data changes after release should be logged because they affect compliance evidence.",
+      "Dispatch should remain blocked where mandatory shipment details are missing."
+    ],
+    linkedFlows: [
+      { title: "Delivery / Dispatch", description: "Shipment execution and proof tracking.", href: "/delivery-dispatch" },
+      { title: "Invoices", description: "Commercial documents linked to shipment.", href: "/invoices" },
+      { title: "GST Command Center", description: "Tax and compliance oversight.", href: "/gst-command-center" }
+    ]
+  },
+  "tds-tcs": {
+    title: "TDS / TCS",
+    description: "Track withholding and collection tax applicability, computation, posting, and compliance review.",
+    metrics: [
+      { label: "TDS vendors", value: 2, helper: "Suppliers with withholding applicability" },
+      { label: "TCS customers", value: 1, helper: "Customers under collection rules" },
+      { label: "Pending review", value: 3, helper: "Transactions needing threshold or section validation" },
+      { label: "Tax at risk", value: 860, helper: "Potential misclassified withholding/collection amount" }
+    ],
+    queues: [
+      { title: "Review threshold crossings", description: "Check vendor/customer cumulative amounts against applicable sections.", status: "Compliance", href: "/payables" },
+      { title: "Validate postings", description: "Confirm tax payable/receivable accounts are hit correctly on source transactions.", status: "Accounting", href: "/journal-entries" },
+      { title: "Clear exceptions", description: "Resolve missing PAN, section, or rate issues before filing.", status: "Control", href: "/exception-queue" }
+    ],
+    operatingRules: [
+      "TDS/TCS should be computed using configured party profiles, sections, thresholds, and effective dates.",
+      "Source transaction edits after posting must re-evaluate withholding or collection impact with audit history.",
+      "Filing-ready summaries should exclude transactions with missing mandatory tax master data."
+    ],
+    linkedFlows: [
+      { title: "Payables", description: "Vendor-side withholding review.", href: "/payables" },
+      { title: "Collections", description: "Customer-side collection tax context.", href: "/collections" },
+      { title: "GST Command Center", description: "Central tax operations view.", href: "/gst-command-center" }
+    ]
+  },
+  templates: {
+    title: "Templates",
+    description: "Control document templates, numbering patterns, and branded outputs for invoices, quotations, and reports.",
+    metrics: [
+      { label: "Active templates", value: 4, helper: "Customer-facing and internal document layouts" },
+      { label: "Default invoice format", value: "Modern GST", helper: "Primary invoice output template" },
+      { label: "Draft variants", value: 2, helper: "Pending review before activation" },
+      { label: "Brand assets", value: "Loaded", helper: "Logo and company identity available" }
+    ],
+    queues: [
+      { title: "Review invoice layout", description: "Check GST fields, totals, payment terms, and branding placement.", status: "Sales ops", href: "/invoices" },
+      { title: "Update quotation format", description: "Align commercial proposal layout with revenue process.", status: "Revenue", href: "/quotations" },
+      { title: "Approve numbering changes", description: "Protect numbering integrity before changing template-linked sequences.", status: "Control", href: "/audit-trail" }
+    ],
+    operatingRules: [
+      "Template edits should not retroactively alter already-issued documents unless versioning is explicit.",
+      "Document numbering controls must remain separate from the visual template layer.",
+      "Template changes affecting statutory outputs should be reviewed before activation."
+    ],
+    linkedFlows: [
+      { title: "Settings", description: "Company identity and base configuration.", href: "/settings" },
+      { title: "Invoices", description: "Primary outbound template consumer.", href: "/invoices" },
+      { title: "Quotations", description: "Commercial document formatting.", href: "/quotations" }
+    ]
   }
 };
 
