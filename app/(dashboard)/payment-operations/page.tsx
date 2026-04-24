@@ -1,7 +1,11 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { PaymentOperationsWorkspace } from "@/components/workflows/PaymentOperationsWorkspace";
 
 export default function Page() {
-  return <WorkflowPage config={getWorkflowPage("payment-operations")} workflowKey="payment-operations" />;
+  return (
+    <div className="space-y-6 animate-fade-up">
+      <PageHeader title="Payment Operations" description="Live settlement tracking, fee/tax visibility, and operational settlement status changes." />
+      <PaymentOperationsWorkspace />
+    </div>
+  );
 }
-
