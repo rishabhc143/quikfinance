@@ -1,6 +1,5 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { AutomationRulesWorkspace } from "@/components/workflows/AutomationRulesWorkspace";
 
 export default function Page() {
-  return <WorkflowPage config={getWorkflowPage("rules-engine")} workflowKey="rules-engine" />;
+  return <AutomationRulesWorkspace variant="rules" />;
 }

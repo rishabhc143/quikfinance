@@ -1,7 +1,5 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { AutomationRulesWorkspace } from "@/components/workflows/AutomationRulesWorkspace";
 
 export default function Page() {
-  return <WorkflowPage config={getWorkflowPage("recurring-invoices")} workflowKey="recurring-invoices" />;
+  return <AutomationRulesWorkspace variant="invoice" />;
 }
-
