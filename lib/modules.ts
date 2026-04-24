@@ -1,7 +1,9 @@
 import {
   Activity,
+  ArrowLeftRight,
   Banknote,
   BarChart3,
+  Bot,
   BookOpen,
   Boxes,
   Briefcase,
@@ -14,14 +16,18 @@ import {
   CreditCard,
   FileBarChart,
   FileText,
+  FileSearch,
+  FileSpreadsheet,
   Landmark,
   Package,
   Receipt,
   Repeat2,
   ScanText,
+  Search,
   Settings,
   ShieldCheck,
   Tags,
+  Truck,
   Upload,
   Users,
   Webhook,
@@ -69,103 +75,135 @@ export type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-export const navigationGroups: { label: string; items: NavItem[] }[] = [
-  { label: "Overview", items: [{ title: "Dashboard", href: "/", icon: Activity }] },
+export type NavigationGroup = {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  items: NavItem[];
+};
+
+export const navigationGroups: NavigationGroup[] = [
   {
-    label: "Sales",
+    label: "Workspace",
+    icon: Activity,
+    items: [
+      { title: "Dashboard", href: "/", icon: Activity },
+      { title: "Global Search", href: "/search", icon: Search },
+      { title: "Tasks / Exceptions", href: "/exception-queue", icon: ShieldCheck },
+      { title: "AI Copilot", href: "/finance-copilot", icon: Bot }
+    ]
+  },
+  {
+    label: "Revenue",
+    icon: CircleDollarSign,
     items: [
       { title: "Customers", href: "/customers", icon: Users },
       { title: "Quotations", href: "/quotations", icon: FileText },
       { title: "Sales Orders", href: "/sales-orders", icon: ClipboardList },
+      { title: "Delivery / Dispatch", href: "/sales-orders", icon: Truck },
       { title: "Invoices", href: "/invoices", icon: FileText },
-      { title: "Recurring Invoices", href: "/recurring-invoices", icon: Repeat2 },
       { title: "Credit Notes", href: "/credit-notes", icon: Repeat2 },
       { title: "Payments Received", href: "/payments/received", icon: CircleDollarSign },
-      { title: "Collections", href: "/collections", icon: CircleDollarSign }
+      { title: "Collections", href: "/collections", icon: WalletCards }
     ]
   },
   {
-    label: "Purchases",
+    label: "Procurement",
+    icon: Building2,
     items: [
       { title: "Vendors", href: "/vendors", icon: Building2 },
       { title: "Purchase Orders", href: "/purchase-orders", icon: ClipboardList },
-      { title: "Goods Receipts", href: "/goods-receipts", icon: Package },
+      { title: "Goods Receipts (GRN)", href: "/goods-receipts", icon: Package },
       { title: "Bills", href: "/bills", icon: ClipboardList },
-      { title: "Recurring Bills", href: "/recurring-bills", icon: Repeat2 },
       { title: "Vendor Credits", href: "/vendor-credits", icon: Repeat2 },
-      { title: "Expenses", href: "/expenses", icon: Receipt },
       { title: "Payments Made", href: "/payments/made", icon: CreditCard },
       { title: "Payables", href: "/payables", icon: WalletCards }
     ]
   },
   {
-    label: "Accounting",
+    label: "Banking",
+    icon: Landmark,
     items: [
-      { title: "Chart of Accounts", href: "/chart-of-accounts", icon: BookOpen },
-      { title: "Ledgers", href: "/ledgers", icon: BookOpen },
-      { title: "Day Book", href: "/day-book", icon: ClipboardList },
-      { title: "Journal Entries", href: "/journal-entries", icon: Calculator },
       { title: "Bank Accounts", href: "/bank-accounts", icon: Landmark },
-      { title: "Payments Operations", href: "/payment-operations", icon: CreditCard },
-      { title: "Close Management", href: "/close-management", icon: ShieldCheck }
+      { title: "Bank Feeds", href: "/bank-accounts", icon: Activity },
+      { title: "Reconciliation", href: "/bank-accounts", icon: FileSearch },
+      { title: "Transfers", href: "/payment-operations", icon: ArrowLeftRight },
+      { title: "Payment Gateways", href: "/integrations", icon: Cable },
+      { title: "Settlements", href: "/payment-operations", icon: CreditCard }
     ]
   },
   {
-    label: "Compliance",
+    label: "Accounting",
+    icon: BookOpen,
+    items: [
+      { title: "Chart of Accounts", href: "/chart-of-accounts", icon: BookOpen },
+      { title: "Journal Entries", href: "/journal-entries", icon: Calculator },
+      { title: "Ledger", href: "/ledgers", icon: BookOpen },
+      { title: "Day Book", href: "/day-book", icon: ClipboardList },
+      { title: "Period Close", href: "/close-management", icon: ShieldCheck },
+      { title: "Period Locks", href: "/period-locks", icon: ShieldCheck },
+      { title: "Audit Trail", href: "/audit-trail", icon: ClipboardList }
+    ]
+  },
+  {
+    label: "Inventory",
+    icon: Boxes,
+    items: [
+      { title: "Items", href: "/inventory", icon: Package },
+      { title: "Warehouses", href: "/warehouses", icon: Boxes },
+      { title: "Stock Adjustments", href: "/stock-movements", icon: Repeat2 },
+      { title: "Transfers", href: "/stock-movements", icon: ArrowLeftRight },
+      { title: "Valuation", href: "/inventory", icon: Calculator },
+      { title: "Reorder", href: "/warehouses", icon: Activity }
+    ]
+  },
+  {
+    label: "Tax & Compliance",
+    icon: Receipt,
     items: [
       { title: "GST Command Center", href: "/gst-command-center", icon: Receipt },
-      { title: "ITC Reconciliation", href: "/itc-reconciliation", icon: Tags },
-      { title: "Exception Queue", href: "/exception-queue", icon: ShieldCheck }
+      { title: "GSTR-1", href: "/reports/gstr-1", icon: FileSpreadsheet },
+      { title: "GSTR-3B", href: "/reports/gstr-3b", icon: FileSpreadsheet },
+      { title: "GSTR-2B / ITC", href: "/itc-reconciliation", icon: Tags },
+      { title: "E-Invoicing", href: "/gst-command-center", icon: FileText },
+      { title: "E-Way Bill", href: "/gst-command-center", icon: Truck },
+      { title: "TDS/TCS", href: "/gst-command-center", icon: Receipt }
     ]
   },
   {
     label: "Reports",
+    icon: FileBarChart,
     items: [
-      { title: "Reports", href: "/reports", icon: FileBarChart },
-      { title: "Trial Balance", href: "/reports/trial-balance", icon: BookOpen },
-      { title: "P&L", href: "/reports/profit-loss", icon: BarChart3 },
-      { title: "Balance Sheet", href: "/reports/balance-sheet", icon: ChartNoAxesCombined },
-      { title: "Aging", href: "/reports/aging", icon: Repeat2 },
-      { title: "GSTR-1", href: "/reports/gstr-1", icon: Receipt },
-      { title: "GSTR-3B", href: "/reports/gstr-3b", icon: Tags },
-      { title: "GST Summary", href: "/reports/gst-summary", icon: Receipt },
-      { title: "GST Parity", href: "/reports/gst-parity", icon: Tags },
-      { title: "Outstanding", href: "/reports/outstanding", icon: ClipboardList }
-    ]
-  },
-  {
-    label: "More",
-    items: [
-      { title: "Fixed Assets", href: "/fixed-assets", icon: Briefcase },
+      { title: "Financials", href: "/reports", icon: FileBarChart },
+      { title: "Sales / Purchase Registers", href: "/reports/outstanding", icon: FileSpreadsheet },
       { title: "Inventory", href: "/inventory", icon: Package },
-      { title: "Warehouses", href: "/warehouses", icon: Boxes },
-      { title: "Stock Movements", href: "/stock-movements", icon: Repeat2 },
-      { title: "Projects", href: "/projects", icon: Boxes },
-      { title: "Time Tracking", href: "/time-tracking", icon: Activity },
-      { title: "Budgets", href: "/budgets", icon: WalletCards },
-      { title: "Documents", href: "/documents", icon: FileText }
+      { title: "GST", href: "/reports/gst-summary", icon: Receipt },
+      { title: "Project Profitability", href: "/projects", icon: Briefcase },
+      { title: "Cash Flow", href: "/reports/cash-flow", icon: ChartNoAxesCombined },
+      { title: "Budget vs Actual", href: "/budgets", icon: BarChart3 }
     ]
   },
   {
     label: "Automation",
+    icon: Settings,
     items: [
-      { title: "Imports", href: "/imports", icon: Upload },
-      { title: "Migration Center", href: "/migration-center", icon: Upload },
-      { title: "OCR Bills", href: "/ocr-bills", icon: ScanText },
+      { title: "OCR Inbox", href: "/ocr-bills", icon: ScanText },
+      { title: "Imports / Migration", href: "/migration-center", icon: Upload },
       { title: "Rules Engine", href: "/rules-engine", icon: Settings },
-      { title: "Finance Copilot", href: "/finance-copilot", icon: ChartNoAxesCombined },
-      { title: "Approvals", href: "/approvals", icon: ShieldCheck },
-      { title: "Audit Trail", href: "/audit-trail", icon: ClipboardList },
-      { title: "Period Locks", href: "/period-locks", icon: ShieldCheck },
-      { title: "Integrations", href: "/integrations", icon: Cable }
+      { title: "Workflows", href: "/approvals", icon: ShieldCheck },
+      { title: "Integrations", href: "/integrations", icon: Cable },
+      { title: "Job Logs", href: "/audit-trail", icon: ClipboardList },
+      { title: "Exceptions", href: "/exception-queue", icon: ShieldCheck }
     ]
   },
   {
     label: "Settings",
+    icon: Settings,
     items: [
       { title: "Company", href: "/settings", icon: Settings },
       { title: "Taxes", href: "/settings/taxes", icon: Tags },
       { title: "Currencies", href: "/settings/currencies", icon: Banknote },
+      { title: "Roles & Permissions", href: "/settings/users", icon: ShieldCheck },
+      { title: "Templates", href: "/settings", icon: FileText },
       { title: "Portals", href: "/settings/portals", icon: Webhook }
     ]
   }
