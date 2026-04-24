@@ -650,3 +650,93 @@ export async function createPaymentTransaction(context: ApiContext, input: {
 
   return payment;
 }
+
+export async function createExpenseTransaction(context: ApiContext, input: {
+  expense_date: string;
+  vendor_id?: string | null;
+  account_id: string;
+  payment_account_id?: string | null;
+  bank_account_id?: string | null;
+  project_id?: string | null;
+  amount: number;
+  tax_amount?: number;
+  currency?: string;
+  receipt_url?: string | null;
+  is_billable?: boolean;
+  description: string;
+  status?: string;
+}) {
+  const status = input.status ?? "posted";
+  const taxAmount = toMoney(Number(input.tax_amount ?? 0));
+  const amount = toMoney(Number(input.amount ?? 0));
+
+  const paymentAccountId =
+    input.payment_account_id ??
+    (await resolveBankLedgerAccountId(context, input.bank_account_id ?? null, "bank"));
+
+  const { data: expense, error } = await context.supabase
+    .from("expenses")
+    .insert({
+      org_id: context.orgId,
+      expense_date: input.expense_date,
+      vendor_id: input.vendor_id ?? null,
+      account_id: input.account_id,
+      payment_account_id: paymentAccountId,
+      project_id: input.project_id ?? null,
+      amount,
+      tax_amount: taxAmount,
+      currency: input.currency ?? "INR",
+      receipt_url: input.receipt_url ?? null,
+      is_billable: input.is_billable ?? false,
+      description: input.description,
+      status
+    })
+    .select("*")
+    .single();
+
+  if (error || !expense) {
+    throw new Error(error?.message ?? "Expense could not be created.");
+  }
+
+  if (status !== "posted") {
+    return expense;
+  }
+
+  const systemAccounts = await getSystemAccounts(context);
+  const taxRecoverableAccountId = systemAccounts["2210"]?.id;
+  if (!paymentAccountId || !taxRecoverableAccountId) {
+    throw new Error("Required payment or tax accounts are missing.");
+  }
+
+  const journalEntryId = await insertJournal(context, {
+    entry_date: input.expense_date,
+    memo: input.description,
+    source_type: "expense",
+    source_id: String(expense.id),
+    lines: [
+      { account_id: input.account_id, debit: amount, credit: 0, description: input.description },
+      { account_id: taxRecoverableAccountId, debit: taxAmount, credit: 0, description: "Expense tax input" },
+      { account_id: paymentAccountId, debit: 0, credit: toMoney(amount + taxAmount), description: "Expense payment" }
+    ]
+  });
+
+  await upsertAccountBalancesFromJournal(context, journalEntryId);
+  await context.supabase.from("expenses").update({ journal_entry_id: journalEntryId }).eq("org_id", context.orgId).eq("id", expense.id);
+
+  if (input.bank_account_id) {
+    const { data: bankAccount } = await context.supabase
+      .from("bank_accounts")
+      .select("current_balance")
+      .eq("org_id", context.orgId)
+      .eq("id", input.bank_account_id)
+      .single();
+    const current = Number(bankAccount?.current_balance ?? 0);
+    await context.supabase
+      .from("bank_accounts")
+      .update({ current_balance: toMoney(current - amount - taxAmount) })
+      .eq("org_id", context.orgId)
+      .eq("id", input.bank_account_id);
+  }
+
+  return { ...expense, journal_entry_id: journalEntryId };
+}

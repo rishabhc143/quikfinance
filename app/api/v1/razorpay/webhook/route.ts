@@ -1,4 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createPaymentTransaction, recalculateInvoiceStatus } from "@/lib/accounting/transactions";
 import { fail, ok } from "@/lib/api/responses";
 import { verifyRazorpayWebhookSignature } from "@/lib/razorpay";
 import type { Json } from "@/types/database.types";
@@ -49,6 +50,15 @@ async function syncInvoiceStatus(admin: ReturnType<typeof createSupabaseAdminCli
     .eq("id", invoiceId);
 }
 
+function systemContext(admin: ReturnType<typeof createSupabaseAdminClient>, orgId: string, userId: string) {
+  return {
+    supabase: admin,
+    orgId,
+    userId,
+    role: "system"
+  };
+}
+
 export async function POST(request: Request) {
   const rawBody = await request.text();
   const signature = request.headers.get("x-razorpay-signature");
@@ -80,7 +90,7 @@ export async function POST(request: Request) {
 
     const { data: link, error: linkError } = await admin
       .from("invoice_payment_links")
-      .select("id, org_id, invoice_id, amount_paid, amount_refunded, provider_link_id, currency")
+      .select("id, org_id, invoice_id, amount_paid, amount_refunded, provider_link_id, currency, created_by")
       .eq("provider", "razorpay")
       .eq("provider_link_id", providerLinkId)
       .maybeSingle();
@@ -120,18 +130,36 @@ export async function POST(request: Request) {
         .maybeSingle();
 
       if (!existingPayment?.id) {
-        await admin.from("payments").insert({
-          org_id: link.org_id,
-          contact_id: invoice?.contact_id ?? null,
-          payment_type: "received",
-          payment_date: paymentDateFromUnix(paymentEntity?.created_at),
-          amount: paymentAmount,
-          currency,
-          method: "Razorpay",
-          reference: `razorpay:${paymentId}`,
-          memo: `Collected through Razorpay payment link ${providerLinkId}`,
-          status: "posted"
-        });
+        const actorId = link.created_by;
+        if (actorId) {
+          await createPaymentTransaction(systemContext(admin, link.org_id, actorId), {
+            contact_id: invoice?.contact_id ?? null,
+            payment_type: "received",
+            payment_date: paymentDateFromUnix(paymentEntity?.created_at),
+            amount: paymentAmount,
+            currency,
+            exchange_rate: 1,
+            method: "Razorpay",
+            reference: `razorpay:${paymentId}`,
+            memo: `Collected through Razorpay payment link ${providerLinkId}`,
+            status: "posted",
+            invoice_id: link.invoice_id,
+            bank_account_id: null
+          });
+        } else {
+          await admin.from("payments").insert({
+            org_id: link.org_id,
+            contact_id: invoice?.contact_id ?? null,
+            payment_type: "received",
+            payment_date: paymentDateFromUnix(paymentEntity?.created_at),
+            amount: paymentAmount,
+            currency,
+            method: "Razorpay",
+            reference: `razorpay:${paymentId}`,
+            memo: `Collected through Razorpay payment link ${providerLinkId}`,
+            status: "posted"
+          });
+        }
       }
     }
 
@@ -148,7 +176,11 @@ export async function POST(request: Request) {
       processed_at: new Date().toISOString()
     });
 
-    await syncInvoiceStatus(admin, link.invoice_id, grossPaid, Number(link.amount_refunded ?? 0));
+    if (link.created_by) {
+      await recalculateInvoiceStatus(systemContext(admin, link.org_id, link.created_by), link.invoice_id);
+    } else {
+      await syncInvoiceStatus(admin, link.invoice_id, grossPaid, Number(link.amount_refunded ?? 0));
+    }
     return ok({ received: true, event: eventType });
   }
 

@@ -18,6 +18,8 @@ export const expenseSchema = z.object({
   expense_date: z.coerce.date().transform((value) => value.toISOString().slice(0, 10)),
   vendor_id: idSchema.optional().nullable(),
   account_id: idSchema,
+  payment_account_id: idSchema.optional().nullable(),
+  bank_account_id: idSchema.optional().nullable(),
   project_id: idSchema.optional().nullable(),
   amount: moneySchema,
   tax_amount: moneySchema.default(0),

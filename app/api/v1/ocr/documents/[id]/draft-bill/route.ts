@@ -1,4 +1,5 @@
 import { requireApiContext } from "@/lib/api/auth";
+import { createBillTransaction } from "@/lib/accounting/transactions";
 import { errorMessage, fail, ok } from "@/lib/api/responses";
 import { ensureContact } from "@/lib/imports/processors";
 import { assertPeriodUnlocked } from "@/lib/period-locks";
@@ -45,36 +46,23 @@ export async function POST(_request: Request, { params }: { params: { id: string
       phone: ""
     });
 
-    const subtotal = Number(extracted.subtotal ?? 0);
-    const taxTotal = Number(extracted.tax_total ?? 0);
-    const total = Number(extracted.total ?? subtotal + taxTotal);
     const billNumber =
       (typeof extracted.invoice_number === "string" && extracted.invoice_number) ||
       (typeof extracted.bill_number === "string" && extracted.bill_number) ||
       sequence("BILL");
 
-    const { data: bill, error: billError } = await auth.context.supabase
-      .from("bills")
-      .insert({
-        org_id: auth.context.orgId,
+    const { bill } = await createBillTransaction(auth.context, {
         contact_id: vendorId,
         bill_number: billNumber,
         issue_date: issueDate,
         due_date: typeof extracted.due_date === "string" && extracted.due_date ? extracted.due_date : issueDate,
-        subtotal,
-        tax_total: taxTotal,
-        total,
-        balance_due: total,
-        currency: "USD",
+        subtotal: Number(extracted.subtotal ?? 0),
+        tax_total: Number(extracted.tax_total ?? 0),
+        total: Number(extracted.total ?? Number(extracted.subtotal ?? 0) + Number(extracted.tax_total ?? 0)),
+        currency: "INR",
         notes: `Drafted from OCR document ${document.source_name}`,
         status: "draft"
-      })
-      .select("id, bill_number, issue_date, due_date, total, status")
-      .single();
-
-    if (billError || !bill) {
-      return fail(400, { code: "BILL_CREATE_FAILED", message: billError?.message ?? "Draft bill could not be created." });
-    }
+      });
 
     await auth.context.supabase
       .from("ocr_documents")

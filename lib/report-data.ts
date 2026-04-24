@@ -445,3 +445,392 @@ export async function buildGstr3bReport(context: ApiContext, from: string, to: s
     ]
   };
 }
+
+type JournalEntryLite = {
+  id: string;
+  entry_date: string;
+  source_type: string | null;
+};
+
+type JournalLineLite = {
+  journal_entry_id: string;
+  account_id: string;
+  debit: number;
+  credit: number;
+};
+
+async function fetchPostedJournalRows(context: ApiContext, from: string, to: string) {
+  const { data: entries, error: entryError } = await context.supabase
+    .from("journal_entries")
+    .select("id, entry_date, source_type")
+    .eq("org_id", context.orgId)
+    .eq("status", "posted")
+    .gte("entry_date", from)
+    .lte("entry_date", to);
+
+  if (entryError) {
+    throw new Error(entryError.message);
+  }
+
+  const typedEntries = (entries ?? []) as unknown as JournalEntryLite[];
+  if (!typedEntries.length) {
+    return { entries: [] as JournalEntryLite[], lines: [] as JournalLineLite[], accounts: [] as Array<{ id: string; code: string; name: string; account_type: string }> };
+  }
+
+  const entryIds = typedEntries.map((entry) => entry.id);
+  const { data: lines, error: lineError } = await context.supabase
+    .from("journal_entry_lines")
+    .select("journal_entry_id, account_id, debit, credit")
+    .eq("org_id", context.orgId)
+    .in("journal_entry_id", entryIds);
+
+  if (lineError) {
+    throw new Error(lineError.message);
+  }
+
+  const accountIds = [...new Set((lines ?? []).map((line) => String(line.account_id)))];
+  const { data: accounts, error: accountError } = await context.supabase
+    .from("accounts")
+    .select("id, code, name, account_type")
+    .eq("org_id", context.orgId)
+    .in("id", accountIds.length ? accountIds : ["00000000-0000-0000-0000-000000000000"]);
+
+  if (accountError) {
+    throw new Error(accountError.message);
+  }
+
+  return {
+    entries: typedEntries,
+    lines: (lines ?? []) as unknown as JournalLineLite[],
+    accounts: (accounts ?? []) as Array<{ id: string; code: string; name: string; account_type: string }>
+  };
+}
+
+async function fetchCashBalances(context: ApiContext, cutoff?: string | null) {
+  const { data: cashAccounts, error: accountError } = await context.supabase
+    .from("accounts")
+    .select("id, code, name, account_type")
+    .eq("org_id", context.orgId)
+    .in("account_type", ["cash", "bank"]);
+
+  if (accountError) {
+    throw new Error(accountError.message);
+  }
+
+  const accountIds = (cashAccounts ?? []).map((row) => String(row.id));
+  if (!accountIds.length) {
+    return { balances: new Map<string, number>(), accounts: [] as Array<{ id: string; code: string; name: string; account_type: string }> };
+  }
+
+  let entryQuery = context.supabase.from("journal_entries").select("id").eq("org_id", context.orgId).eq("status", "posted");
+  if (cutoff) {
+    entryQuery = entryQuery.lt("entry_date", cutoff);
+  }
+
+  const { data: entries, error: entryError } = await entryQuery;
+  if (entryError) {
+    throw new Error(entryError.message);
+  }
+
+  const entryIds = (entries ?? []).map((row) => String(row.id));
+  if (!entryIds.length) {
+    return { balances: new Map<string, number>(), accounts: (cashAccounts ?? []) as Array<{ id: string; code: string; name: string; account_type: string }> };
+  }
+
+  const { data: lines, error: lineError } = await context.supabase
+    .from("journal_entry_lines")
+    .select("account_id, debit, credit")
+    .eq("org_id", context.orgId)
+    .in("journal_entry_id", entryIds)
+    .in("account_id", accountIds);
+
+  if (lineError) {
+    throw new Error(lineError.message);
+  }
+
+  const balances = new Map<string, number>();
+  for (const line of lines ?? []) {
+    const accountId = String(line.account_id);
+    const delta = Number(line.debit ?? 0) - Number(line.credit ?? 0);
+    balances.set(accountId, Number(((balances.get(accountId) ?? 0) + delta).toFixed(2)));
+  }
+
+  return { balances, accounts: (cashAccounts ?? []) as Array<{ id: string; code: string; name: string; account_type: string }> };
+}
+
+export async function buildTrialBalanceReport(context: ApiContext, from: string, to: string): Promise<ReportConfig> {
+  const { lines, accounts } = await fetchPostedJournalRows(context, from, to);
+  const accountsById = new Map(accounts.map((account) => [account.id, account]));
+  const rowsByAccount = new Map<string, { id: string; account: string; debit: number; credit: number }>();
+
+  for (const line of lines) {
+    const account = accountsById.get(String(line.account_id));
+    if (!account) continue;
+    const current = rowsByAccount.get(account.id) ?? {
+      id: account.id,
+      account: `${account.code} · ${account.name}`,
+      debit: 0,
+      credit: 0
+    };
+    current.debit += Number(line.debit ?? 0);
+    current.credit += Number(line.credit ?? 0);
+    rowsByAccount.set(account.id, current);
+  }
+
+  const rows = Array.from(rowsByAccount.values())
+    .map((row) => ({ ...row, debit: Number(row.debit.toFixed(2)), credit: Number(row.credit.toFixed(2)) }))
+    .sort((a, b) => a.account.localeCompare(b.account));
+
+  const totalDebits = rows.reduce((sum, row) => sum + row.debit, 0);
+  const totalCredits = rows.reduce((sum, row) => sum + row.credit, 0);
+
+  return {
+    key: "trial-balance",
+    title: "Trial Balance",
+    description: "Debit and credit totals by account for the selected period.",
+    apiPath: "/api/v1/reports/trial-balance",
+    columns: [
+      { key: "account", label: "Account" },
+      { key: "debit", label: "Debit", kind: "money" },
+      { key: "credit", label: "Credit", kind: "money" }
+    ],
+    rows,
+    summary: [
+      { label: "Debits", value: Number(totalDebits.toFixed(2)), tone: "neutral" },
+      { label: "Credits", value: Number(totalCredits.toFixed(2)), tone: "neutral" },
+      { label: "Difference", value: Number((totalDebits - totalCredits).toFixed(2)), tone: Math.abs(totalDebits - totalCredits) < 0.01 ? "good" : "warn" }
+    ]
+  };
+}
+
+export async function buildProfitLossReport(context: ApiContext, from: string, to: string): Promise<ReportConfig> {
+  const { lines, accounts } = await fetchPostedJournalRows(context, from, to);
+  const accountsById = new Map(accounts.map((account) => [account.id, account]));
+  const relevantTypes = new Set(["revenue", "cost_of_goods_sold", "expense", "other_income", "other_expense"]);
+  const rowsByAccount = new Map<string, { id: string; account: string; amount: number; account_type: string }>();
+
+  for (const line of lines) {
+    const account = accountsById.get(String(line.account_id));
+    if (!account || !relevantTypes.has(account.account_type)) continue;
+    const current = rowsByAccount.get(account.id) ?? {
+      id: account.id,
+      account: `${account.code} · ${account.name}`,
+      amount: 0,
+      account_type: account.account_type
+    };
+    current.amount += Number(line.credit ?? 0) - Number(line.debit ?? 0);
+    rowsByAccount.set(account.id, current);
+  }
+
+  const rows = Array.from(rowsByAccount.values())
+    .map((row) => ({
+      id: row.id,
+      account: row.account,
+      current: Number(row.amount.toFixed(2)),
+      comparison: 0,
+      variance: Number(row.amount.toFixed(2))
+    }))
+    .sort((a, b) => a.account.localeCompare(b.account));
+
+  const revenue = Array.from(rowsByAccount.values())
+    .filter((row) => row.account_type === "revenue" || row.account_type === "other_income")
+    .reduce((sum, row) => sum + row.amount, 0);
+  const expenses = Array.from(rowsByAccount.values())
+    .filter((row) => row.account_type !== "revenue" && row.account_type !== "other_income")
+    .reduce((sum, row) => sum + Math.abs(row.amount), 0);
+  const netIncome = revenue - expenses;
+
+  return {
+    key: "profit-loss",
+    title: "Profit & Loss",
+    description: "Revenue and expenses generated from posted journals for the selected period.",
+    apiPath: "/api/v1/reports/profit-loss",
+    columns: [
+      { key: "account", label: "Account" },
+      { key: "current", label: "Current", kind: "money" },
+      { key: "comparison", label: "Comparison", kind: "money" },
+      { key: "variance", label: "Variance", kind: "money" }
+    ],
+    rows,
+    summary: [
+      { label: "Revenue", value: Number(revenue.toFixed(2)), tone: revenue >= 0 ? "good" : "warn" },
+      { label: "Expenses", value: Number(expenses.toFixed(2)), tone: "warn" },
+      { label: "Net income", value: Number(netIncome.toFixed(2)), tone: netIncome >= 0 ? "good" : "warn" }
+    ]
+  };
+}
+
+export async function buildBalanceSheetReport(context: ApiContext, from: string, to: string): Promise<ReportConfig> {
+  const { lines, accounts } = await fetchPostedJournalRows(context, "1900-01-01", to);
+  const accountsById = new Map(accounts.map((account) => [account.id, account]));
+  const assetTypes = new Set(["cash", "bank", "accounts_receivable", "other_current_asset", "fixed_asset", "other_asset"]);
+  const liabilityTypes = new Set(["accounts_payable", "other_current_liability", "long_term_liability"]);
+  const equityTypes = new Set(["equity", "retained_earnings"]);
+  const rowsByAccount = new Map<string, { id: string; section: string; account: string; amount: number }>();
+
+  for (const line of lines) {
+    const account = accountsById.get(String(line.account_id));
+    if (!account) continue;
+    const isAsset = assetTypes.has(account.account_type);
+    const isLiability = liabilityTypes.has(account.account_type);
+    const isEquity = equityTypes.has(account.account_type);
+    if (!isAsset && !isLiability && !isEquity) continue;
+
+    const section = isAsset ? "Assets" : isLiability ? "Liabilities" : "Equity";
+    const delta = isAsset ? Number(line.debit ?? 0) - Number(line.credit ?? 0) : Number(line.credit ?? 0) - Number(line.debit ?? 0);
+    const current = rowsByAccount.get(account.id) ?? {
+      id: account.id,
+      section,
+      account: `${account.code} · ${account.name}`,
+      amount: 0
+    };
+    current.amount += delta;
+    rowsByAccount.set(account.id, current);
+  }
+
+  const rows = Array.from(rowsByAccount.values())
+    .map((row) => ({ ...row, amount: Number(row.amount.toFixed(2)) }))
+    .sort((a, b) => (a.section === b.section ? a.account.localeCompare(b.account) : a.section.localeCompare(b.section)));
+
+  const totalAssets = rows.filter((row) => row.section === "Assets").reduce((sum, row) => sum + row.amount, 0);
+  const totalLiabilities = rows.filter((row) => row.section === "Liabilities").reduce((sum, row) => sum + row.amount, 0);
+  const totalEquity = rows.filter((row) => row.section === "Equity").reduce((sum, row) => sum + row.amount, 0);
+
+  return {
+    key: "balance-sheet",
+    title: "Balance Sheet",
+    description: "Assets, liabilities, and equity from posted journals as of the report end date.",
+    apiPath: "/api/v1/reports/balance-sheet",
+    columns: [
+      { key: "section", label: "Section" },
+      { key: "account", label: "Account" },
+      { key: "amount", label: "Amount", kind: "money" }
+    ],
+    rows,
+    summary: [
+      { label: "Assets", value: Number(totalAssets.toFixed(2)), tone: "neutral" },
+      { label: "Liabilities", value: Number(totalLiabilities.toFixed(2)), tone: "warn" },
+      { label: "Equity", value: Number(totalEquity.toFixed(2)), tone: "good" }
+    ]
+  };
+}
+
+export async function buildCashFlowReport(context: ApiContext, from: string, to: string): Promise<ReportConfig> {
+  const { balances: openingBalances } = await fetchCashBalances(context, from);
+  const { entries, lines, accounts } = await fetchPostedJournalRows(context, from, to);
+  const cashAccountIds = new Set(accounts.filter((account) => account.account_type === "cash" || account.account_type === "bank").map((account) => account.id));
+  const entryById = new Map(entries.map((entry) => [entry.id, entry]));
+
+  let cashInflows = 0;
+  let cashOutflows = 0;
+  for (const line of lines) {
+    if (!cashAccountIds.has(String(line.account_id))) continue;
+    cashInflows += Number(line.debit ?? 0);
+    cashOutflows += Number(line.credit ?? 0);
+  }
+
+  const openingCash = Array.from(openingBalances.values()).reduce((sum, value) => sum + value, 0);
+  const netCashFlow = cashInflows - cashOutflows;
+  const closingCash = openingCash + netCashFlow;
+
+  const paymentsReceived = lines
+    .filter((line) => {
+      if (!cashAccountIds.has(String(line.account_id))) return false;
+      const entry = entryById.get(String(line.journal_entry_id));
+      return entry?.source_type === "payment" && Number(line.debit ?? 0) > 0;
+    })
+    .reduce((sum, line) => sum + Number(line.debit ?? 0), 0);
+
+  const paymentsMade = lines
+    .filter((line) => {
+      if (!cashAccountIds.has(String(line.account_id))) return false;
+      const entry = entryById.get(String(line.journal_entry_id));
+      return (entry?.source_type === "payment" || entry?.source_type === "expense") && Number(line.credit ?? 0) > 0;
+    })
+    .reduce((sum, line) => sum + Number(line.credit ?? 0), 0);
+
+  return {
+    key: "cash-flow",
+    title: "Cash Flow",
+    description: "Cash and bank movements based on posted journal entries for the selected period.",
+    apiPath: "/api/v1/reports/cash-flow",
+    columns: [
+      { key: "activity", label: "Activity" },
+      { key: "amount", label: "Amount", kind: "money" }
+    ],
+    rows: [
+      { id: "cf-receipts", activity: "Cash receipts", amount: Number(paymentsReceived.toFixed(2)) },
+      { id: "cf-payments", activity: "Cash payments", amount: Number((-paymentsMade).toFixed(2)) },
+      { id: "cf-net", activity: "Net cash flow", amount: Number(netCashFlow.toFixed(2)) }
+    ],
+    summary: [
+      { label: "Opening cash", value: Number(openingCash.toFixed(2)), tone: "neutral" },
+      { label: "Net cash flow", value: Number(netCashFlow.toFixed(2)), tone: netCashFlow >= 0 ? "good" : "warn" },
+      { label: "Closing cash", value: Number(closingCash.toFixed(2)), tone: closingCash >= 0 ? "good" : "warn" }
+    ]
+  };
+}
+
+export async function buildAgingReport(context: ApiContext, from: string, to: string): Promise<ReportConfig> {
+  const contacts = await fetchContacts(context);
+  const today = new Date().toISOString().slice(0, 10);
+  const [invoices, bills] = await Promise.all([fetchInvoices(context), fetchBills(context)]);
+  const buckets = new Map<string, { id: string; contact: string; current: number; days_30: number; days_60: number; days_90: number }>();
+
+  const addBalance = (contactId: string, amount: number, dueDate: string) => {
+    const key = contactId;
+    const current = buckets.get(key) ?? {
+      id: key,
+      contact: contactName(contacts, contactId),
+      current: 0,
+      days_30: 0,
+      days_60: 0,
+      days_90: 0
+    };
+
+    if (dueDate >= today) {
+      current.current += amount;
+    } else {
+      const daysLate = Math.floor((new Date(today).getTime() - new Date(dueDate).getTime()) / (1000 * 60 * 60 * 24));
+      if (daysLate <= 30) current.days_30 += amount;
+      else if (daysLate <= 60) current.days_60 += amount;
+      else current.days_90 += amount;
+    }
+    buckets.set(key, current);
+  };
+
+  invoices
+    .filter((row) => matchesDateRange(row.issue_date, from, to) && Number(row.balance_due ?? 0) > 0 && row.status !== "void")
+    .forEach((row) => addBalance(row.contact_id, Number(row.balance_due ?? 0), row.due_date));
+
+  const rows = Array.from(buckets.values()).map((row) => ({
+    ...row,
+    current: Number(row.current.toFixed(2)),
+    days_30: Number(row.days_30.toFixed(2)),
+    days_60: Number(row.days_60.toFixed(2)),
+    days_90: Number(row.days_90.toFixed(2))
+  }));
+
+  const overdue = rows.reduce((sum, row) => sum + row.days_30 + row.days_60 + row.days_90, 0);
+  const total = rows.reduce((sum, row) => sum + row.current + row.days_30 + row.days_60 + row.days_90, 0);
+
+  return {
+    key: "aging",
+    title: "Aging",
+    description: "Receivable aging by customer for the selected period.",
+    apiPath: "/api/v1/reports/aging",
+    columns: [
+      { key: "contact", label: "Contact" },
+      { key: "current", label: "Current", kind: "money" },
+      { key: "days_30", label: "1-30", kind: "money" },
+      { key: "days_60", label: "31-60", kind: "money" },
+      { key: "days_90", label: "90+", kind: "money" }
+    ],
+    rows,
+    summary: [
+      { label: "Current", value: Number(rows.reduce((sum, row) => sum + row.current, 0).toFixed(2)), tone: "neutral" },
+      { label: "Overdue", value: Number(overdue.toFixed(2)), tone: overdue > 0 ? "warn" : "good" },
+      { label: "Collection risk", value: total > 0 ? Number(((overdue / total) * 100).toFixed(2)) : 0, tone: overdue > 0 ? "warn" : "good", kind: "percent" }
+    ]
+  };
+}
