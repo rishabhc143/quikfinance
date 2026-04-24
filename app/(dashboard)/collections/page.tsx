@@ -1,7 +1,11 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { CollectionsWorkspace } from "@/components/workflows/CollectionsWorkspace";
 
 export default function Page() {
-  return <WorkflowPage config={getWorkflowPage("collections")} workflowKey="collections" />;
+  return (
+    <div className="space-y-6 animate-fade-up">
+      <PageHeader title="Collections" description="Live receivables workbench for overdue invoices, payment links, and receipt posting." />
+      <CollectionsWorkspace />
+    </div>
+  );
 }
-
