@@ -1,7 +1,6 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { AccountingAuditWorkspace } from "@/components/workflows/AccountingAuditWorkspace";
 
 export default function Page() {
-  return <WorkflowPage config={getWorkflowPage("day-book")} workflowKey="day-book" />;
+  return <AccountingAuditWorkspace variant="day-book" />;
 }
 

@@ -1,7 +1,6 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { ITCReconciliationWorkspace } from "@/components/workflows/ITCReconciliationWorkspace";
 
 export default function Page() {
-  return <WorkflowPage config={getWorkflowPage("itc-reconciliation")} workflowKey="itc-reconciliation" />;
+  return <ITCReconciliationWorkspace />;
 }
 

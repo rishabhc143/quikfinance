@@ -1,7 +1,6 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { AccountingAuditWorkspace } from "@/components/workflows/AccountingAuditWorkspace";
 
 export default function Page() {
-  return <WorkflowPage config={getWorkflowPage("ledgers")} workflowKey="ledgers" />;
+  return <AccountingAuditWorkspace variant="ledgers" />;
 }
 

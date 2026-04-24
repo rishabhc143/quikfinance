@@ -1,7 +1,6 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { GoodsReceiptsWorkspace } from "@/components/workflows/GoodsReceiptsWorkspace";
 
 export default function Page() {
-  return <WorkflowPage config={getWorkflowPage("goods-receipts")} workflowKey="goods-receipts" />;
+  return <GoodsReceiptsWorkspace />;
 }
 
