@@ -119,9 +119,8 @@ export function Topbar() {
               {t("topbar.profile", "Profile")}
             </DropdownMenu.Item>
             <DropdownMenu.Item
-              onSelect={() => router.push("/settings")}
-              className="cursor-pointer rounded-md px-3 py-2 text-sm outline-none hover:bg-muted"
-            >
+              onSelect={() => router.push("/settings/company")}
+              className="cursor-pointer rounded-md px-3 py-2 text-sm outline-none hover:bg-muted">
               {t("topbar.settings", "Settings")}
             </DropdownMenu.Item>
             <DropdownMenu.Sub>

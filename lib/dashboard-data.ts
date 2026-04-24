@@ -1,4 +1,5 @@
 import type { ApiContext } from "@/lib/api/auth";
+import { loadCompanySetupSnapshot, type SetupChecklistItem } from "@/lib/company-setup";
 
 export type DashboardData = {
   kpis: { label: string; value: number; change: string; tone: "good" | "warn" | "neutral"; kind?: "money" | "number" }[];
@@ -6,6 +7,7 @@ export type DashboardData = {
   cashFlow: { date: string; cash: number }[];
   aging: { name: string; value: number }[];
   feed: { id: string; label: string; amount: number; date: string }[];
+  setup: { completed: boolean; progress_percent: number; checklist: SetupChecklistItem[] };
 };
 
 type InvoiceLite = {
@@ -118,10 +120,12 @@ export const fallbackDashboard: DashboardData = {
     { id: "feed-1", label: "Payment received from Northstar Labs", amount: 4000, date: "Today" },
     { id: "feed-2", label: "Bill approved for Metro Cloud Hosting", amount: -1180, date: "Today" },
     { id: "feed-3", label: "Expense posted for client travel", amount: -640, date: "20 Apr" }
-  ]
+  ],
+  setup: { completed: false, progress_percent: 0, checklist: [] }
 };
 
 export async function buildDashboardData(context: ApiContext): Promise<DashboardData> {
+  const setupSnapshot = await loadCompanySetupSnapshot(context);
   const [{ data: invoices }, { data: bills }, { data: payments }, { data: expenses }, { data: bankAccounts }] = await Promise.all([
     context.supabase
       .from("invoices")
@@ -237,6 +241,11 @@ export async function buildDashboardData(context: ApiContext): Promise<Dashboard
     revenueExpense,
     cashFlow,
     aging,
-    feed
+    feed,
+    setup: {
+      completed: setupSnapshot.setup_completed,
+      progress_percent: setupSnapshot.progress_percent,
+      checklist: setupSnapshot.checklist
+    }
   };
 }

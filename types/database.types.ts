@@ -190,12 +190,29 @@ export type OrganizationRow = TenantRow & {
   tax_id: string | null;
   gstin: string | null;
   pan: string | null;
+  business_type: string | null;
+  industry: string | null;
   state_code: string | null;
+  city: string | null;
+  country: string | null;
+  pin_code: string | null;
+  website: string | null;
+  gst_registered: boolean;
+  gst_filing_frequency: string;
+  place_of_supply: string | null;
   preferred_language: string;
   default_upi_id: string | null;
   base_currency: string;
   fiscal_year_start: number;
+  fiscal_year_start_month: number;
+  fiscal_year_start_date: string | null;
+  fiscal_year_end_date: string | null;
+  accounting_method: string;
   timezone: string;
+  invoice_prefix: string;
+  invoice_next_number: number;
+  payment_terms: string;
+  setup_completed: boolean;
 };
 
 export type CommercialDocumentRow = TenantRow & {

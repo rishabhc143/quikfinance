@@ -1,79 +1,147 @@
 # QuikFinance
 
-QuikFinance is a production-oriented accounting workspace built with Next.js 14, TypeScript, Supabase, Tailwind CSS, shadcn-style Radix primitives, TanStack Query, Zustand, Recharts, React PDF, Resend, Zod, and Dinero.
+QuikFinance is a Next.js 14 + Supabase accounting SaaS for small businesses. It supports company onboarding, chart of accounts, customers, vendors, items, invoices, bills, expenses, payments, GST reporting, OCR bill ingestion, Razorpay payment links, dashboards, reports, and audit logs.
 
-## Prerequisites
+## Tech Stack
 
-- Node.js 20 or newer
-- npm 10 or newer
-- Supabase CLI
-- A Supabase project with email/password auth and Google OAuth configured
-- A Resend account for transactional invoice email
+- Next.js 14 App Router
+- TypeScript
+- Supabase Auth + Postgres + RLS
+- Tailwind CSS
+- TanStack Query
+- Zod
+- React Hook Form
+- Recharts
+- React PDF
 
-## One Command Setup
+## Setup
+
+1. Install dependencies
 
 ```bash
-npm install && supabase db push && npm run dev
+npm install
 ```
 
-The app runs at `http://localhost:3000`.
+2. Create `.env.local` from `.env.example`
 
-## Environment
-
-Create `.env.local` from `.env.local.example` and fill in:
-
-- `NEXT_PUBLIC_SUPABASE_URL`: Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Supabase anon key used by browser and route handlers
-- `SUPABASE_SERVICE_ROLE_KEY`: server-only key for maintenance scripts
-- `NEXT_PUBLIC_APP_URL`: deployed app URL
-- `RESEND_API_KEY`: Resend API key for invoice delivery
-- `NEXT_PUBLIC_GOOGLE_CLIENT_ID`: Google OAuth client ID
-- `RAZORPAY_KEY_ID`: Razorpay API key ID for invoice payment links
-- `RAZORPAY_KEY_SECRET`: Razorpay secret key for payment-link creation
-- `RAZORPAY_WEBHOOK_SECRET`: Razorpay webhook secret for payment and refund sync
-
-Never expose `SUPABASE_SERVICE_ROLE_KEY` to the browser.
-
-## Database
-
-The initial migration creates:
-
-- Multi-tenant organizations and profiles
-- Chart of accounts, currencies, exchange rates, tax rates, and default account seeding
-- Customers, vendors, invoices, bills, payments, expenses, journal entries, bank reconciliation, reports, budgets, fixed assets, inventory, projects, recurring transactions, attachments, notifications, and audit logs
-- Import jobs for CSV, Tally, Zoho Books, and bank statements
-- Period locks for month-end close, OCR documents for bill drafting, Razorpay invoice payment links, and gateway event history
-- Row Level Security policies scoped through `profiles.org_id`
-- Audit, updated-at, onboarding, and balanced-journal enforcement functions
-- Storage buckets for invoice PDFs and attachments
-
-Apply it with:
+3. Apply Supabase migrations
 
 ```bash
 supabase db push
 ```
 
-## Development
+4. Start development server
+
+```bash
+npm run dev
+```
+
+App URL: `http://localhost:3000`
+
+## Environment Variables
+
+Required for core app:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_APP_URL`
+
+Optional but supported:
+
+- `DATABASE_URL`
+- `NEXTAUTH_SECRET`
+- `NEXTAUTH_URL`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `RESEND_API_KEY`
+- `OPENAI_API_KEY`
+- `OPENAI_SUPPORT_MODEL`
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET`
+- `OCR_API_KEY`
+- `UPLOAD_STORAGE_PROVIDER`
+- `APP_URL`
+
+Notes:
+
+- Missing Google or Razorpay keys do not crash the app. Those features show safe disabled behavior.
+- `SUPABASE_SERVICE_ROLE_KEY` must stay server-only.
+
+## Database
+
+Main schema areas:
+
+- Organizations and profiles
+- Accounts and tax rates
+- Customers/vendors via `contacts`
+- Items
+- Invoices, bills, payments, expenses
+- Journal entries and journal lines
+- Bank accounts and reconciliation
+- OCR documents and payment links
+- Reports, workflows, audit logs
+
+Latest onboarding/company setup migration added:
+
+- `business_type`
+- `industry`
+- `website`
+- `country`
+- `city`
+- `pin_code`
+- `gst_registered`
+- `gst_filing_frequency`
+- `place_of_supply`
+- `accounting_method`
+- `fiscal_year_start_date`
+- `fiscal_year_end_date`
+- `fiscal_year_start_month`
+- `invoice_next_number`
+- `payment_terms`
+- `setup_completed`
+
+## Scripts
 
 ```bash
 npm run dev
 npm run typecheck
-npm run lint
 npm run build
+npm run start
 ```
 
 ## Deployment
 
-1. Create a Vercel project from this repository.
-2. Add the environment variables listed above.
-3. Add Vercel project secrets named `supabase_url` and `supabase_anon_key`, matching `vercel.json`.
-4. Run the Supabase migration against production.
-5. Deploy with Vercel. The project is configured for the `bom1` region.
+1. Import the repo into Vercel
+2. Add the same environment variables used locally
+3. Run Supabase migrations against production
+4. Deploy
 
-## Security Notes
+The project is Vercel-compatible and `npm run build` passes.
 
-- All API handlers require Supabase `getUser()` authentication.
-- All tenant data is scoped by `org_id`.
-- API bodies are validated with Zod.
-- Mutations write audit log entries.
-- List endpoints paginate with a default of 25 and a maximum of 100.
+## Demo Workflow
+
+1. Register a new user with company name and base currency
+2. Sign in
+3. Complete `/company-setup`
+4. Review or seed default chart of accounts
+5. Add a bank account, customer, vendor, and item
+6. Create invoices and bills
+7. Record payments
+8. Review dashboard and reports
+9. Use OCR billing and Razorpay where configured
+10. Review audit logs
+
+## Known Limitations
+
+- Dedicated onboarding and route gating are implemented, but not every transaction page has a fully custom line-item UX yet.
+- A number of modules still use generalized CRUD forms rather than purpose-built transaction editors.
+- Razorpay payment-link creation and webhook sync are implemented, but live payments require valid production credentials.
+- OCR works with current OCR pipeline and development fallback, but production extraction quality depends on provider configuration.
+
+## Additional Docs
+
+- `docs/APP_WORKFLOW.md`
+- `docs/ACCOUNTING_LOGIC.md`
+- `docs/TESTING_CHECKLIST.md`

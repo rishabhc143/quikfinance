@@ -65,7 +65,7 @@ export default function LoginPage() {
       return;
     }
     const next = new URLSearchParams(window.location.search).get("next");
-    router.push(next ?? "/");
+    router.push(next ?? "/dashboard");
   };
 
   const google = async () => {

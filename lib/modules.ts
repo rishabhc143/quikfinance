@@ -87,7 +87,7 @@ export const navigationGroups: NavigationGroup[] = [
     label: "Workspace",
     icon: Activity,
     items: [
-      { title: "Dashboard", href: "/", icon: Activity },
+      { title: "Dashboard", href: "/dashboard", icon: Activity },
       { title: "Global Search", href: "/search", icon: Search },
       { title: "Tasks / Exceptions", href: "/exception-queue", icon: ShieldCheck },
       { title: "AI Copilot", href: "/finance-copilot", icon: Bot }
@@ -200,7 +200,7 @@ export const navigationGroups: NavigationGroup[] = [
     label: "Settings",
     icon: Settings,
     items: [
-      { title: "Company", href: "/settings", icon: Settings },
+      { title: "Company", href: "/settings/company", icon: Settings },
       { title: "Taxes", href: "/settings/taxes", icon: Tags },
       { title: "Currencies", href: "/settings/currencies", icon: Banknote },
       { title: "Roles & Permissions", href: "/settings/users", icon: ShieldCheck },
