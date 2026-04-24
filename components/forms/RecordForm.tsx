@@ -149,7 +149,7 @@ export function RecordForm({ config }: { config: ModuleConfig }) {
 
     toast.success(`${config.entityName} saved.`);
     form.reset();
-    router.push(`/${config.key}`);
+    router.push(config.listPath ?? `/${config.key}`);
   });
 
   if (config.formFields.length === 0) {

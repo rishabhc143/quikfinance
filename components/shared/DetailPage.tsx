@@ -35,6 +35,7 @@ export function DetailPage({ config, id }: { config: ModuleConfig; id: string })
   const activeRow = detail.data ?? row;
   const editHref = config.newPath ? `${config.newPath}?edit=${id}` : `/${config.key}`;
   const duplicateHref = config.newPath ? `${config.newPath}?duplicate=${id}` : `/${config.key}`;
+  const listHref = config.listPath ?? `/${config.key}`;
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -69,7 +70,7 @@ export function DetailPage({ config, id }: { config: ModuleConfig; id: string })
               </Button>
             ) : null}
             <Button asChild variant="secondary" className="w-full">
-              <Link href={config.key === "bank-accounts" ? `/bank-accounts/${id}/reconciliation` : `/${config.key}`}>{t("common.openWorkflow", "Open workflow")}</Link>
+              <Link href={config.key === "bank-accounts" ? `/bank-accounts/${id}/reconciliation` : listHref}>{t("common.openWorkflow", "Open workflow")}</Link>
             </Button>
           </CardContent>
         </Card>

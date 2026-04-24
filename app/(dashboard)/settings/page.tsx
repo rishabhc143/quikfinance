@@ -11,6 +11,7 @@ const companyConfig: ModuleConfig = {
   entityName: "company profile",
   description: "Company identity, fiscal year, logo, address, timezone, and numbering defaults.",
   apiPath: "/api/v1/settings/company",
+  listPath: "/settings",
   columns: [],
   rows: [],
   formFields: [

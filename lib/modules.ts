@@ -62,6 +62,7 @@ export type ModuleConfig = {
   entityName: string;
   description: string;
   apiPath: string;
+  listPath?: string;
   newPath?: string;
   columns: DataColumn[];
   rows: TableRow[];
@@ -476,6 +477,9 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     entityName: "payment",
     description: "Allocate receipts against invoices or keep advances unapplied.",
     apiPath: "/api/v1/payments?type=received",
+    listPath: "/payments/received",
+    newPath: "/payments/received/new",
+    primaryAction: "Record payment",
     columns: [
       { key: "payment_date", label: "Date", kind: "date" },
       { key: "customer", label: "Customer" },
@@ -487,7 +491,18 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
       { id: "pay-1", payment_date: today, customer: "Northstar Labs", method: "ACH", amount: money(4000), status: "posted" },
       { id: "pay-2", payment_date: "2026-04-18", customer: "Greenline Foods", method: "Card", amount: money(1200), status: "posted" }
     ],
-    formFields: []
+    formFields: [
+      { name: "contact_id", label: "Customer ID", type: "text" },
+      { name: "payment_type", label: "Payment type", type: "select", required: true, options: [{ label: "Received", value: "received" }] },
+      { name: "payment_date", label: "Payment date", type: "date", required: true },
+      { name: "amount", label: "Amount", type: "money", required: true },
+      { name: "currency", label: "Currency", type: "select", options: [{ label: "INR", value: "INR" }, { label: "USD", value: "USD" }] },
+      { name: "exchange_rate", label: "Exchange rate", type: "number" },
+      { name: "method", label: "Method", type: "text", required: true },
+      { name: "reference", label: "Reference", type: "text" },
+      { name: "status", label: "Status", type: "select", required: true, options: [{ label: "Draft", value: "draft" }, { label: "Posted", value: "posted" }, { label: "Void", value: "void" }] },
+      { name: "memo", label: "Memo", type: "textarea" }
+    ]
   },
   "payments-made": {
     key: "payments-made",
@@ -495,6 +510,9 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     entityName: "payment",
     description: "Record vendor payments and reconcile them to bank activity.",
     apiPath: "/api/v1/payments?type=made",
+    listPath: "/payments/made",
+    newPath: "/payments/made/new",
+    primaryAction: "Record payout",
     columns: [
       { key: "payment_date", label: "Date", kind: "date" },
       { key: "vendor", label: "Vendor" },
@@ -505,7 +523,18 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     rows: [
       { id: "paym-1", payment_date: "2026-04-17", vendor: "LedgerWorks Advisory", method: "Bank transfer", amount: money(2100), status: "posted" }
     ],
-    formFields: []
+    formFields: [
+      { name: "contact_id", label: "Vendor ID", type: "text" },
+      { name: "payment_type", label: "Payment type", type: "select", required: true, options: [{ label: "Made", value: "made" }] },
+      { name: "payment_date", label: "Payment date", type: "date", required: true },
+      { name: "amount", label: "Amount", type: "money", required: true },
+      { name: "currency", label: "Currency", type: "select", options: [{ label: "INR", value: "INR" }, { label: "USD", value: "USD" }] },
+      { name: "exchange_rate", label: "Exchange rate", type: "number" },
+      { name: "method", label: "Method", type: "text", required: true },
+      { name: "reference", label: "Reference", type: "text" },
+      { name: "status", label: "Status", type: "select", required: true, options: [{ label: "Draft", value: "draft" }, { label: "Posted", value: "posted" }, { label: "Void", value: "void" }] },
+      { name: "memo", label: "Memo", type: "textarea" }
+    ]
   },
   expenses: {
     key: "expenses",
@@ -566,6 +595,8 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     entityName: "account",
     description: "Maintain the account tree, account types, and running balances.",
     apiPath: "/api/v1/accounts",
+    newPath: "/chart-of-accounts/new",
+    primaryAction: "New account",
     columns: [
       { key: "code", label: "Code" },
       { key: "name", label: "Account" },
@@ -579,7 +610,28 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
       { id: "acc-3", code: "2000", name: "Accounts Payable", account_type: "accounts_payable", balance: money(3280), is_active: true },
       { id: "acc-4", code: "4000", name: "Consulting Revenue", account_type: "revenue", balance: money(143800), is_active: true }
     ],
-    formFields: []
+    formFields: [
+      { name: "code", label: "Code", type: "text", required: true },
+      { name: "name", label: "Name", type: "text", required: true },
+      {
+        name: "account_type",
+        label: "Account type",
+        type: "select",
+        required: true,
+        options: [
+          { label: "Bank", value: "bank" },
+          { label: "Accounts Receivable", value: "accounts_receivable" },
+          { label: "Accounts Payable", value: "accounts_payable" },
+          { label: "Revenue", value: "revenue" },
+          { label: "Expense", value: "expense" },
+          { label: "Asset", value: "asset" },
+          { label: "Liability", value: "liability" },
+          { label: "Equity", value: "equity" }
+        ]
+      },
+      { name: "balance", label: "Opening balance", type: "money" },
+      { name: "is_active", label: "Active", type: "checkbox" }
+    ]
   },
   "bank-accounts": {
     key: "bank-accounts",
@@ -587,6 +639,8 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     entityName: "bank account",
     description: "Import statements, match transactions, and reconcile balances.",
     apiPath: "/api/v1/bank-accounts",
+    newPath: "/bank-accounts/new",
+    primaryAction: "New bank account",
     columns: [
       { key: "name", label: "Account" },
       { key: "institution_name", label: "Institution" },
@@ -598,7 +652,15 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
       { id: "bank-1", name: "Operating Account", institution_name: "First Harbor Bank", currency: "USD", current_balance: money(88420), is_active: true },
       { id: "bank-2", name: "Tax Reserve", institution_name: "First Harbor Bank", currency: "USD", current_balance: money(14150), is_active: true }
     ],
-    formFields: []
+    formFields: [
+      { name: "account_id", label: "Account ID", type: "text" },
+      { name: "name", label: "Name", type: "text", required: true },
+      { name: "institution_name", label: "Institution", type: "text" },
+      { name: "account_number_last4", label: "Last 4 digits", type: "text" },
+      { name: "currency", label: "Currency", type: "select", options: [{ label: "INR", value: "INR" }, { label: "USD", value: "USD" }] },
+      { name: "current_balance", label: "Current balance", type: "money" },
+      { name: "is_active", label: "Active", type: "checkbox" }
+    ]
   },
   imports: {
     key: "imports",
@@ -967,6 +1029,8 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     entityName: "budget",
     description: "Plan annual spend by account and monitor variance through the year.",
     apiPath: "/api/v1/budgets",
+    newPath: "/budgets/new",
+    primaryAction: "New budget",
     columns: [
       { key: "name", label: "Budget" },
       { key: "fiscal_year", label: "Year", align: "center" },
@@ -976,7 +1040,12 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     rows: [
       { id: "bud-1", name: "FY2026 Operating Budget", fiscal_year: 2026, total_amount: money(420000), status: "active" }
     ],
-    formFields: []
+    formFields: [
+      { name: "name", label: "Budget name", type: "text", required: true },
+      { name: "fiscal_year", label: "Fiscal year", type: "number", required: true },
+      { name: "total_amount", label: "Total amount", type: "money", required: true },
+      { name: "status", label: "Status", type: "select", required: true, options: [{ label: "Draft", value: "draft" }, { label: "Active", value: "active" }, { label: "Archived", value: "archived" }] }
+    ]
   },
   "fixed-assets": {
     key: "fixed-assets",
@@ -996,7 +1065,16 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     rows: [
       { id: "fa-1", asset_number: "FA-0001", name: "MacBook Pro fleet", purchase_cost: money(18600), book_value: money(15500), status: "active" }
     ],
-    formFields: []
+    formFields: [
+      { name: "name", label: "Asset name", type: "text", required: true },
+      { name: "purchase_date", label: "Purchase date", type: "date", required: true },
+      { name: "purchase_cost", label: "Purchase cost", type: "money", required: true },
+      { name: "salvage_value", label: "Salvage value", type: "money" },
+      { name: "useful_life_months", label: "Useful life months", type: "number", required: true },
+      { name: "depreciation_method", label: "Depreciation method", type: "select", required: true, options: [{ label: "Straight line", value: "straight_line" }, { label: "Declining balance", value: "declining_balance" }] },
+      { name: "accumulated_depreciation", label: "Accumulated depreciation", type: "money" },
+      { name: "status", label: "Status", type: "select", required: true, options: [{ label: "Active", value: "active" }, { label: "Disposed", value: "disposed" }, { label: "Retired", value: "retired" }] }
+    ]
   },
   inventory: {
     key: "inventory",
@@ -1004,6 +1082,8 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     entityName: "item",
     description: "Maintain products, FIFO valuation, stock levels, and reorder alerts.",
     apiPath: "/api/v1/inventory",
+    newPath: "/inventory/new",
+    primaryAction: "New item",
     columns: [
       { key: "sku", label: "SKU" },
       { key: "name", label: "Item" },
@@ -1015,7 +1095,16 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
       { id: "item-1", sku: "CONSULT-HR", name: "Consulting hour", quantity_on_hand: 0, sales_price: money(180), status: "service" },
       { id: "item-2", sku: "KIT-STARTER", name: "Implementation kit", quantity_on_hand: 18, sales_price: money(950), status: "in_stock" }
     ],
-    formFields: []
+    formFields: [
+      { name: "sku", label: "SKU", type: "text", required: true },
+      { name: "name", label: "Item name", type: "text", required: true },
+      { name: "unit", label: "Unit", type: "text", required: true },
+      { name: "sales_price", label: "Sales price", type: "money", required: true },
+      { name: "purchase_price", label: "Purchase price", type: "money", required: true },
+      { name: "quantity_on_hand", label: "Quantity on hand", type: "number" },
+      { name: "reorder_point", label: "Reorder point", type: "number" },
+      { name: "is_active", label: "Active", type: "checkbox" }
+    ]
   },
   projects: {
     key: "projects",
@@ -1023,6 +1112,8 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     entityName: "project",
     description: "Track budgets, billable work, expenses, and profitability by project.",
     apiPath: "/api/v1/projects",
+    newPath: "/projects/new",
+    primaryAction: "New project",
     columns: [
       { key: "name", label: "Project" },
       { key: "customer", label: "Customer" },
@@ -1033,7 +1124,13 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     rows: [
       { id: "proj-1", name: "Northstar rollout", customer: "Northstar Labs", budget_amount: money(52000), profitability: money(18400), status: "active" }
     ],
-    formFields: []
+    formFields: [
+      { name: "name", label: "Project name", type: "text", required: true },
+      { name: "customer_id", label: "Customer ID", type: "text" },
+      { name: "status", label: "Status", type: "select", required: true, options: [{ label: "Planned", value: "planned" }, { label: "Active", value: "active" }, { label: "On hold", value: "on_hold" }, { label: "Complete", value: "complete" }] },
+      { name: "budget_amount", label: "Budget amount", type: "money" },
+      { name: "billing_method", label: "Billing method", type: "select", required: true, options: [{ label: "Fixed fee", value: "fixed_fee" }, { label: "Time and materials", value: "time_and_materials" }, { label: "Non billable", value: "non_billable" }] }
+    ]
   },
   "time-tracking": {
     key: "time-tracking",
@@ -1068,6 +1165,9 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     entityName: "tax rate",
     description: "Configure collected and recoverable tax rates, including compound tax.",
     apiPath: "/api/v1/taxes",
+    listPath: "/settings/taxes",
+    newPath: "/settings/taxes/new",
+    primaryAction: "New tax rate",
     columns: [
       { key: "name", label: "Tax" },
       { key: "rate", label: "Rate", kind: "number", align: "right" },
@@ -1079,7 +1179,13 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
       { id: "tax-1", name: "GST 5%", rate: 5, tax_type: "GST", is_compound: false, is_active: true },
       { id: "tax-2", name: "VAT 20%", rate: 20, tax_type: "VAT", is_compound: false, is_active: true }
     ],
-    formFields: []
+    formFields: [
+      { name: "name", label: "Tax name", type: "text", required: true },
+      { name: "rate", label: "Rate", type: "number", required: true },
+      { name: "tax_type", label: "Tax type", type: "text", required: true },
+      { name: "is_compound", label: "Compound", type: "checkbox" },
+      { name: "is_active", label: "Active", type: "checkbox" }
+    ]
   },
   currencies: {
     key: "currencies",
@@ -1087,6 +1193,7 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     entityName: "currency",
     description: "Manage enabled transaction currencies and decimal precision.",
     apiPath: "/api/v1/currencies",
+    listPath: "/settings/currencies",
     columns: [
       { key: "code", label: "Code" },
       { key: "name", label: "Name" },
