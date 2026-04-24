@@ -1194,6 +1194,8 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     description: "Manage enabled transaction currencies and decimal precision.",
     apiPath: "/api/v1/currencies",
     listPath: "/settings/currencies",
+    newPath: "/settings/currencies/new",
+    primaryAction: "New currency",
     columns: [
       { key: "code", label: "Code" },
       { key: "name", label: "Name" },
@@ -1205,7 +1207,12 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
       { id: "INR", code: "INR", name: "Indian Rupee", symbol: "Rs", decimal_places: 2 },
       { id: "EUR", code: "EUR", name: "Euro", symbol: "EUR", decimal_places: 2 }
     ],
-    formFields: []
+    formFields: [
+      { name: "code", label: "Currency code", type: "text", required: true },
+      { name: "name", label: "Currency name", type: "text", required: true },
+      { name: "symbol", label: "Symbol", type: "text", required: true },
+      { name: "decimal_places", label: "Decimal places", type: "number", required: true }
+    ]
   }
 };
 
