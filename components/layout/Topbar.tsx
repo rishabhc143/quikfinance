@@ -3,6 +3,8 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
 import { Bell, Globe2, LogOut, Moon, Search, UserRound } from "lucide-react";
+import Link from "next/link";
+import { type FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { MobileSidebar } from "@/components/layout/MobileSidebar";
@@ -14,6 +16,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 export function Topbar() {
   const router = useRouter();
   const { locale, setLocale, t } = useI18n();
+  const [query, setQuery] = useState("");
+  const [darkMode, setDarkMode] = useState(false);
 
   const company = useQuery({
     queryKey: ["company-summary"],
@@ -51,6 +55,25 @@ export function Topbar() {
     }).catch(() => null);
   };
 
+  useEffect(() => {
+    const enabled = typeof window !== "undefined" && window.localStorage.getItem("qf-theme") === "dark";
+    document.documentElement.classList.toggle("dark", enabled);
+    setDarkMode(enabled);
+  }, []);
+
+  const toggleTheme = () => {
+    const next = !darkMode;
+    document.documentElement.classList.toggle("dark", next);
+    window.localStorage.setItem("qf-theme", next ? "dark" : "light");
+    setDarkMode(next);
+  };
+
+  const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = query.trim();
+    router.push(trimmed ? `/search?q=${encodeURIComponent(trimmed)}` : "/search");
+  };
+
   return (
     <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur">
       <div className="flex h-16 items-center gap-3 px-4 md:px-6">
@@ -64,15 +87,22 @@ export function Topbar() {
             })}
           </p>
         </div>
-        <div className="relative ml-auto hidden w-full max-w-md md:block">
+        <form onSubmit={submitSearch} className="relative ml-auto hidden w-full max-w-md md:block">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input placeholder={t("topbar.placeholder", "Search invoices, contacts, accounts")} className="pl-9" />
-        </div>
-        <Button variant="ghost" aria-label="Toggle theme">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("topbar.placeholder", "Search invoices, contacts, accounts")}
+            className="pl-9"
+          />
+        </form>
+        <Button variant="ghost" aria-label="Toggle theme" onClick={toggleTheme}>
           <Moon className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" aria-label="Notifications">
-          <Bell className="h-4 w-4" />
+        <Button asChild variant="ghost" aria-label="Notifications">
+          <Link href="/exception-queue">
+            <Bell className="h-4 w-4" />
+          </Link>
         </Button>
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>

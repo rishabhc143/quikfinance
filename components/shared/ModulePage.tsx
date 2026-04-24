@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +34,7 @@ function normalizeRows(value: unknown, fallback: TableRow[]) {
 }
 
 export function ModulePage({ config }: { config: ModuleConfig }) {
+  const router = useRouter();
   const { locale, t } = useI18n();
   const meta = translateModuleMeta(locale, config.key, {
     title: config.title,
@@ -58,6 +60,12 @@ export function ModulePage({ config }: { config: ModuleConfig }) {
     return sum + (typeof amount === "number" ? amount : 0);
   }, 0);
 
+  const exportPdf = () => {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-up">
       <PageHeader title={meta.title} description={meta.description} actionLabel={meta.primaryAction} actionHref={config.newPath} />
@@ -79,8 +87,12 @@ export function ModulePage({ config }: { config: ModuleConfig }) {
             <CardTitle>{t("common.workflow", "Workflow")}</CardTitle>
           </CardHeader>
           <CardContent className="flex gap-2">
-            <Button variant="secondary">{t("common.importCsv", "Import CSV")}</Button>
-            <Button variant="secondary">{t("common.exportPdf", "Export PDF")}</Button>
+            <Button variant="secondary" onClick={() => router.push(`/imports/new?module=${encodeURIComponent(config.key)}`)}>
+              {t("common.importCsv", "Import CSV")}
+            </Button>
+            <Button variant="secondary" onClick={exportPdf}>
+              {t("common.exportPdf", "Export PDF")}
+            </Button>
           </CardContent>
         </Card>
       </div>

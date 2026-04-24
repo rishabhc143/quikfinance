@@ -1,7 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -12,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { FormField, ModuleConfig } from "@/lib/modules";
-import { todayISO, addDaysISO } from "@/lib/utils/dates";
+import { addDaysISO, todayISO } from "@/lib/utils/dates";
 
 type FormValues = Record<string, string | number | boolean>;
 
@@ -30,7 +31,17 @@ function schemaForField(field: FormField) {
 }
 
 function defaultValue(field: FormField) {
-  if (field.name === "issue_date" || field.name === "expense_date" || field.name === "entry_date" || field.name === "work_date") {
+  if (
+    field.name === "issue_date" ||
+    field.name === "expense_date" ||
+    field.name === "entry_date" ||
+    field.name === "work_date" ||
+    field.name === "dispatch_date" ||
+    field.name === "submission_date" ||
+    field.name === "assessment_date" ||
+    field.name === "imported_on" ||
+    field.name === "statement_date"
+  ) {
     return todayISO();
   }
   if (field.name === "due_date") {
@@ -61,6 +72,18 @@ function defaultValue(field: FormField) {
 }
 
 export function RecordForm({ config }: { config: ModuleConfig }) {
+  const router = useRouter();
+  const [editId, setEditId] = useState<string | null>(null);
+  const [duplicateId, setDuplicateId] = useState<string | null>(null);
+  const loadId = editId ?? duplicateId;
+  const [loadingRecord, setLoadingRecord] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setEditId(params.get("edit"));
+    setDuplicateId(params.get("duplicate"));
+  }, []);
+
   const schema = useMemo(() => {
     const shape = config.formFields.reduce<Record<string, z.ZodType<unknown>>>((fields, field) => {
       fields[field.name] = schemaForField(field);
@@ -77,9 +100,44 @@ export function RecordForm({ config }: { config: ModuleConfig }) {
     }, {})
   });
 
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!loadId) {
+      return () => controller.abort();
+    }
+
+    const loadRecord = async () => {
+      setLoadingRecord(true);
+      const itemPath = config.apiPath.split("?")[0];
+      const response = await fetch(`${itemPath}/${loadId}`, { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error("The record could not be loaded.");
+      }
+
+      const payload = (await response.json()) as { data?: Record<string, unknown> };
+      const record = payload.data ?? {};
+      const nextValues = config.formFields.reduce<FormValues>((values, field) => {
+        const value = record[field.name];
+        values[field.name] = typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? value : defaultValue(field);
+        return values;
+      }, {});
+      form.reset(nextValues);
+      setLoadingRecord(false);
+    };
+
+    loadRecord().catch((error) => {
+      setLoadingRecord(false);
+      toast.error(error instanceof Error ? error.message : "The record could not be loaded.");
+    });
+
+    return () => controller.abort();
+  }, [config.apiPath, config.formFields, form, loadId]);
+
   const submit = form.handleSubmit(async (values) => {
-    const response = await fetch(config.apiPath, {
-      method: "POST",
+    const itemPath = config.apiPath.split("?")[0];
+    const response = await fetch(editId ? `${itemPath}/${editId}` : config.apiPath, {
+      method: editId ? "PUT" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(values)
     });
@@ -91,6 +149,7 @@ export function RecordForm({ config }: { config: ModuleConfig }) {
 
     toast.success(`${config.entityName} saved.`);
     form.reset();
+    router.push(`/${config.key}`);
   });
 
   if (config.formFields.length === 0) {
@@ -103,6 +162,7 @@ export function RecordForm({ config }: { config: ModuleConfig }) {
 
   return (
     <form onSubmit={submit} className="grid gap-5 rounded-lg border bg-card p-5 md:grid-cols-2">
+      {loadingRecord ? <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground md:col-span-2">Loading record...</div> : null}
       {config.formFields.map((field) => (
         <div key={field.name} className={field.type === "textarea" ? "md:col-span-2" : ""}>
           <Label htmlFor={field.name}>{field.label}</Label>
@@ -136,7 +196,7 @@ export function RecordForm({ config }: { config: ModuleConfig }) {
         <Button variant="secondary" type="button" onClick={() => form.reset()}>
           Reset
         </Button>
-        <Button type="submit">Save {config.entityName}</Button>
+        <Button type="submit">{editId ? `Update ${config.entityName}` : duplicateId ? `Duplicate ${config.entityName}` : `Save ${config.entityName}`}</Button>
       </div>
     </form>
   );

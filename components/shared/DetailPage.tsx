@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/shared/DataTable";
@@ -18,6 +19,22 @@ export function DetailPage({ config, id }: { config: ModuleConfig; id: string })
     primaryAction: config.primaryAction
   });
   const row = config.rows.find((item) => item.id === id) ?? config.rows[0];
+  const itemPath = config.apiPath.split("?")[0];
+  const detail = useQuery({
+    queryKey: ["detail", config.key, id],
+    queryFn: async () => {
+      const response = await fetch(`${itemPath}/${id}`);
+      if (!response.ok) {
+        return row;
+      }
+      const payload = (await response.json()) as { data?: typeof row };
+      return payload.data ?? row;
+    },
+    initialData: row
+  });
+  const activeRow = detail.data ?? row;
+  const editHref = config.newPath ? `${config.newPath}?edit=${id}` : `/${config.key}`;
+  const duplicateHref = config.newPath ? `${config.newPath}?duplicate=${id}` : `/${config.key}`;
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -28,7 +45,7 @@ export function DetailPage({ config, id }: { config: ModuleConfig; id: string })
             <CardTitle>{t("common.activity", "Activity")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <DataTable columns={config.columns} rows={row ? [row] : []} title={`${meta.title} detail`} />
+            <DataTable columns={config.columns} rows={activeRow ? [activeRow] : []} title={`${meta.title} detail`} />
           </CardContent>
         </Card>
         <Card>
@@ -38,11 +55,13 @@ export function DetailPage({ config, id }: { config: ModuleConfig; id: string })
           <CardContent className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">{t("common.status", "Status")}</span>
-              <StatusBadge status={typeof row?.status === "string" ? row.status : "active"} />
+              <StatusBadge status={typeof activeRow?.status === "string" ? activeRow.status : "active"} />
             </div>
-            <Button className="w-full">{t("common.edit", "Edit")}</Button>
-            <Button variant="secondary" className="w-full">
-              {t("common.duplicate", "Duplicate")}
+            <Button asChild className="w-full">
+              <Link href={editHref}>{config.newPath ? t("common.edit", "Edit") : "Manage"}</Link>
+            </Button>
+            <Button asChild variant="secondary" className="w-full">
+              <Link href={duplicateHref}>{config.newPath ? t("common.duplicate", "Duplicate") : "Back to list"}</Link>
             </Button>
             {config.key === "invoices" ? (
               <Button asChild variant="secondary" className="w-full">
