@@ -1,5 +1,5 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createPaymentTransaction, recalculateInvoiceStatus } from "@/lib/accounting/transactions";
+import { createInvoiceRefundJournal, createPaymentTransaction, recalculateInvoiceStatus } from "@/lib/accounting/transactions";
 import { fail, ok } from "@/lib/api/responses";
 import { verifyRazorpayWebhookSignature } from "@/lib/razorpay";
 import type { Json } from "@/types/database.types";
@@ -210,7 +210,7 @@ export async function POST(request: Request) {
 
     const { data: link } = await admin
       .from("invoice_payment_links")
-      .select("id, org_id, invoice_id, amount_paid, amount_refunded")
+      .select("id, org_id, invoice_id, amount_paid, amount_refunded, created_by")
       .eq("provider", "razorpay")
       .eq("provider_link_id", priorEvent.provider_link_id)
       .maybeSingle();
@@ -221,6 +221,20 @@ export async function POST(request: Request) {
 
     const refundAmount = amountFromSubunits(refundEntity.amount);
     const refundedTotal = Number((Number(link.amount_refunded ?? 0) + refundAmount).toFixed(2));
+
+    if (priorEvent.org_id && link.invoice_id && paymentId) {
+      const refundContext = systemContext(admin, priorEvent.org_id, link.created_by ?? "00000000-0000-0000-0000-000000000000");
+      if (link.created_by) {
+        await createInvoiceRefundJournal(refundContext, {
+          invoice_id: link.invoice_id,
+          payment_reference: `razorpay:${paymentId}`,
+          refund_reference: `razorpay_refund:${refundId}`,
+          amount: refundAmount,
+          refund_date: paymentDateFromUnix(refundEntity.created_at),
+          memo: `Razorpay refund ${refundId}`
+        }).catch(() => null);
+      }
+    }
 
     await admin
       .from("invoice_payment_links")

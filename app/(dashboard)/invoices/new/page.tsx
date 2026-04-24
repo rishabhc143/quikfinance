@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { DocumentEditor } from "@/components/transactions/DocumentEditor";
 
 export default function NewInvoicePage() {
-  return <FormPage config={getModuleConfig("invoices")} />;
+  return <DocumentEditor kind="invoice" />;
 }

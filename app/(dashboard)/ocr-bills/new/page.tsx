@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { OcrDraftBuilder } from "@/components/ocr/OcrDraftBuilder";
 
-export default function NewOcrBillPage() {
-  return <FormPage config={getModuleConfig("ocr-bills")} />;
+export default function NewOcrDraftPage() {
+  return <OcrDraftBuilder />;
 }

@@ -155,10 +155,10 @@ export async function buildDashboardData(context: ApiContext): Promise<Dashboard
   const expenseRows = (expenses ?? []) as ExpenseLite[];
   const bankAccountRows = (bankAccounts ?? []) as BankAccountLite[];
 
-  const activeInvoices = invoiceRows.filter((row) => row.status !== "void");
-  const activeBills = billRows.filter((row) => row.status !== "void");
-  const activeExpenses = expenseRows.filter((row) => row.status !== "void");
-  const activePayments = paymentRows.filter((row) => row.status !== "void");
+  const activeInvoices = invoiceRows.filter((row) => row.status !== "void" && row.status !== "draft");
+  const activeBills = billRows.filter((row) => row.status !== "void" && row.status !== "draft");
+  const activeExpenses = expenseRows.filter((row) => row.status === "posted");
+  const activePayments = paymentRows.filter((row) => row.status === "posted");
   const monthRows = buildRecentMonths(6);
 
   const revenueExpense = monthRows.map((month) => ({

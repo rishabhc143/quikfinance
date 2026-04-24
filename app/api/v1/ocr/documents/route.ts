@@ -55,7 +55,15 @@ export async function POST(request: Request) {
       });
     }
 
-    const extractedFields = extractDocumentFields(parsed.data.source_text);
+    const extractedFields = extractDocumentFields(parsed.data.source_text) as Record<string, unknown>;
+    const override =
+      typeof json.extracted_fields_override === "object" && json.extracted_fields_override !== null && !Array.isArray(json.extracted_fields_override)
+        ? (json.extracted_fields_override as Record<string, unknown>)
+        : {};
+    const mergedExtractedFields = {
+      ...extractedFields,
+      ...override
+    };
     const { data, error } = await auth.context.supabase
       .from("ocr_documents")
       .insert({
@@ -64,7 +72,7 @@ export async function POST(request: Request) {
         source_name: parsed.data.source_name,
         source_text: parsed.data.source_text,
         notes: parsed.data.notes ?? null,
-        extracted_fields: extractedFields,
+        extracted_fields: mergedExtractedFields,
         status: "parsed",
         created_by: auth.context.userId
       })
@@ -81,14 +89,15 @@ export async function POST(request: Request) {
       entity_type: "ocr_document",
       entity_id: data.id,
       action: "create",
-      new_values: extractedFields
+      new_values: mergedExtractedFields
     });
 
     return ok(
       {
         ...data,
-        vendor_name: extractedFields.vendor_name,
-        total: extractedFields.total
+        vendor_name: mergedExtractedFields.vendor_name,
+        total: mergedExtractedFields.total,
+        extracted_fields: mergedExtractedFields
       },
       undefined,
       { status: 201 }

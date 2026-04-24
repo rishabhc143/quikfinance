@@ -61,7 +61,8 @@ export async function POST(_request: Request, { params }: { params: { id: string
         total: Number(extracted.total ?? Number(extracted.subtotal ?? 0) + Number(extracted.tax_total ?? 0)),
         currency: "INR",
         notes: `Drafted from OCR document ${document.source_name}`,
-        status: "draft"
+        status: "draft",
+        line_items: Array.isArray(extracted.line_items) ? extracted.line_items : undefined
       });
 
     await auth.context.supabase

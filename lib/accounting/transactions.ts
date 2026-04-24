@@ -740,3 +740,54 @@ export async function createExpenseTransaction(context: ApiContext, input: {
 
   return { ...expense, journal_entry_id: journalEntryId };
 }
+
+export async function createInvoiceRefundJournal(context: ApiContext, input: {
+  invoice_id: string;
+  payment_reference: string;
+  refund_reference: string;
+  amount: number;
+  refund_date: string;
+  memo?: string | null;
+}) {
+  const { data: invoice, error: invoiceError } = await context.supabase
+    .from("invoices")
+    .select("id, invoice_number")
+    .eq("org_id", context.orgId)
+    .eq("id", input.invoice_id)
+    .single();
+
+  if (invoiceError || !invoice) {
+    throw new Error(invoiceError?.message ?? "Invoice not found for refund.");
+  }
+
+  const { data: existingPayment } = await context.supabase
+    .from("payments")
+    .select("deposit_account_id")
+    .eq("org_id", context.orgId)
+    .eq("reference", input.payment_reference)
+    .maybeSingle();
+
+  const bankLedgerAccountId =
+    (typeof existingPayment?.deposit_account_id === "string" ? existingPayment.deposit_account_id : null) ??
+    (await resolveBankLedgerAccountId(context, null, "bank"));
+
+  const systemAccounts = await getSystemAccounts(context);
+  const receivableAccountId = systemAccounts["1200"]?.id;
+  if (!receivableAccountId || !bankLedgerAccountId) {
+    throw new Error("Required refund accounts are missing.");
+  }
+
+  const journalEntryId = await insertJournal(context, {
+    entry_date: input.refund_date,
+    memo: input.memo ?? `Refund for invoice ${invoice.invoice_number}`,
+    source_type: "refund",
+    source_id: input.invoice_id,
+    lines: [
+      { account_id: receivableAccountId, debit: toMoney(input.amount), credit: 0, description: `Refund receivable ${input.refund_reference}` },
+      { account_id: bankLedgerAccountId, debit: 0, credit: toMoney(input.amount), description: `Refund bank ${input.refund_reference}` }
+    ]
+  });
+
+  await upsertAccountBalancesFromJournal(context, journalEntryId);
+  return journalEntryId;
+}
