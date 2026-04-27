@@ -8,6 +8,14 @@ export type ReportConfig = {
   columns: { key: string; label: string; kind?: "text" | "money" | "number" }[];
   rows: TableRow[];
   summary: { label: string; value: number; tone: "good" | "warn" | "neutral"; kind?: "money" | "number" | "percent" }[];
+  sections?: Array<{
+    key: string;
+    label: string;
+    taxable_value: number;
+    tax_amount: number;
+    documents: number;
+  }>;
+  totals?: Record<string, number>;
 };
 
 export const reportConfigs: Record<string, ReportConfig> = {

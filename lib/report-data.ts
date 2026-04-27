@@ -141,6 +141,32 @@ export async function buildGstSummaryReport(context: ApiContext, from: string, t
   const purchaseTax = purchases.reduce((sum, row) => sum + Number(row.tax_total ?? 0), 0);
   const expenseTax = operatingExpenses.reduce((sum, row) => sum + Number(row.tax_amount ?? 0), 0);
   const inputTax = purchaseTax + expenseTax;
+  const taxableSales = sales.reduce((sum, row) => sum + Number(row.subtotal ?? 0), 0);
+  const taxablePurchases = purchases.reduce((sum, row) => sum + Number(row.subtotal ?? 0), 0);
+  const taxableExpenses = operatingExpenses.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
+  const sections = [
+    {
+      key: "sales_output",
+      label: "Sales output GST",
+      taxable_value: Number(taxableSales.toFixed(2)),
+      tax_amount: Number(salesTax.toFixed(2)),
+      documents: sales.length
+    },
+    {
+      key: "bills_input",
+      label: "Bills input GST",
+      taxable_value: Number(taxablePurchases.toFixed(2)),
+      tax_amount: Number(purchaseTax.toFixed(2)),
+      documents: purchases.length
+    },
+    {
+      key: "expenses_input",
+      label: "Expenses input GST",
+      taxable_value: Number(taxableExpenses.toFixed(2)),
+      tax_amount: Number(expenseTax.toFixed(2)),
+      documents: operatingExpenses.length
+    }
+  ];
 
   return {
     key: "gst-summary",
@@ -153,34 +179,29 @@ export async function buildGstSummaryReport(context: ApiContext, from: string, t
       { key: "tax_amount", label: "GST", kind: "money" },
       { key: "documents", label: "Documents", kind: "number" }
     ],
-    rows: [
-      {
-        id: "gst-sales",
-        bucket: "Sales output GST",
-        taxable_value: sales.reduce((sum, row) => sum + Number(row.subtotal ?? 0), 0),
-        tax_amount: salesTax,
-        documents: sales.length
-      },
-      {
-        id: "gst-bills",
-        bucket: "Bills input GST",
-        taxable_value: purchases.reduce((sum, row) => sum + Number(row.subtotal ?? 0), 0),
-        tax_amount: purchaseTax,
-        documents: purchases.length
-      },
-      {
-        id: "gst-expenses",
-        bucket: "Expenses input GST",
-        taxable_value: operatingExpenses.reduce((sum, row) => sum + Number(row.amount ?? 0), 0),
-        tax_amount: expenseTax,
-        documents: operatingExpenses.length
-      }
-    ],
+    rows: sections.map((section) => ({
+      id: `gst-${section.key}`,
+      bucket: section.label,
+      taxable_value: section.taxable_value,
+      tax_amount: section.tax_amount,
+      documents: section.documents
+    })),
     summary: [
       { label: "Output GST", value: salesTax, tone: salesTax > 0 ? "good" : "neutral" },
       { label: "Input GST", value: inputTax, tone: inputTax > 0 ? "neutral" : "warn" },
       { label: "Net payable", value: salesTax - inputTax, tone: salesTax - inputTax >= 0 ? "warn" : "good" }
-    ]
+    ],
+    sections,
+    totals: {
+      taxable_sales: Number(taxableSales.toFixed(2)),
+      taxable_purchases: Number(taxablePurchases.toFixed(2)),
+      taxable_expenses: Number(taxableExpenses.toFixed(2)),
+      output_gst: Number(salesTax.toFixed(2)),
+      input_gst_bills: Number(purchaseTax.toFixed(2)),
+      input_gst_expenses: Number(expenseTax.toFixed(2)),
+      input_gst_total: Number(inputTax.toFixed(2)),
+      net_payable: Number((salesTax - inputTax).toFixed(2))
+    }
   };
 }
 
