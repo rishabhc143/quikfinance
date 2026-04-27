@@ -44,8 +44,16 @@ export async function updateSession(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase.from("profiles").select("org_id").eq("id", user.id).single();
     if (profile?.org_id) {
-      const { data: organization } = await supabase.from("organizations").select("setup_completed").eq("id", profile.org_id).single();
-      setupCompleted = Boolean(organization?.setup_completed);
+      const { data: organization } = await supabase.from("organizations").select("*").eq("id", profile.org_id).single();
+      const address =
+        typeof organization?.address === "object" && organization.address !== null && !Array.isArray(organization.address)
+          ? (organization.address as Record<string, unknown>)
+          : {};
+      const meta =
+        typeof address._meta === "object" && address._meta !== null && !Array.isArray(address._meta)
+          ? (address._meta as Record<string, unknown>)
+          : {};
+      setupCompleted = Boolean(organization?.setup_completed ?? meta.setup_completed);
     }
   }
 

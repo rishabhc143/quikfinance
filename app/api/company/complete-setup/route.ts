@@ -19,7 +19,37 @@ export async function POST() {
     });
   }
 
-  const { error } = await auth.context.supabase.from("organizations").update({ setup_completed: true }).eq("id", auth.context.orgId);
+  const { data: organization, error: organizationError } = await auth.context.supabase
+    .from("organizations")
+    .select("*")
+    .eq("id", auth.context.orgId)
+    .single();
+  if (organizationError || !organization) {
+    return fail(404, { code: "ORG_NOT_FOUND", message: organizationError?.message ?? "Organization not found." });
+  }
+
+  const address =
+    typeof organization.address === "object" && organization.address !== null && !Array.isArray(organization.address)
+      ? (organization.address as Record<string, unknown>)
+      : {};
+  const meta =
+    typeof address._meta === "object" && address._meta !== null && !Array.isArray(address._meta)
+      ? (address._meta as Record<string, unknown>)
+      : {};
+
+  const updatePayload = Object.prototype.hasOwnProperty.call(organization, "setup_completed")
+    ? { setup_completed: true }
+    : {
+        address: {
+          ...address,
+          _meta: {
+            ...meta,
+            setup_completed: true
+          }
+        }
+      };
+
+  const { error } = await auth.context.supabase.from("organizations").update(updatePayload).eq("id", auth.context.orgId);
   if (error) {
     return fail(400, { code: "COMPLETE_SETUP_FAILED", message: error.message });
   }
