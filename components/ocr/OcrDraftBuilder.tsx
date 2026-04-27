@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -11,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatMoney } from "@/lib/utils/currency";
 
 type LineItem = { description: string; quantity: number; rate: number; gst_rate: number; discount: number };
+type Attachment = { id: string; file_name: string; signed_url: string | null; content_type: string; size_bytes: number };
 
 function emptyLine(): LineItem {
   return { description: "", quantity: 1, rate: 0, gst_rate: 18, discount: 0 };
@@ -23,6 +25,8 @@ function toMoney(value: number) {
 export function OcrDraftBuilder() {
   const router = useRouter();
   const [parsedId, setParsedId] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [sourceName, setSourceName] = useState("");
   const [sourceText, setSourceText] = useState("");
   const [notes, setNotes] = useState("");
@@ -36,6 +40,7 @@ export function OcrDraftBuilder() {
   const [lines, setLines] = useState<LineItem[]>([emptyLine()]);
   const [parsed, setParsed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const totals = useMemo(() => {
     const previewSubtotal = lines.reduce((sum, line) => sum + line.quantity * line.rate - line.discount, 0);
@@ -43,22 +48,60 @@ export function OcrDraftBuilder() {
     return { subtotal: toMoney(previewSubtotal), tax: toMoney(previewTax), total: toMoney(previewSubtotal + previewTax) };
   }, [lines]);
 
+  const uploadSourceFile = async () => {
+    if (!selectedFile) {
+      toast.error("Choose a source file first.");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("document_type", "bill");
+      formData.append("source_name", sourceName || selectedFile.name);
+      formData.append("source_text", sourceText);
+      formData.append("notes", notes);
+
+      const response = await fetch("/api/v1/ocr/documents/upload", {
+        method: "POST",
+        body: formData
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error?.message ?? "Source file could not be uploaded.");
+
+      setParsedId(typeof json.data?.id === "string" ? json.data.id : null);
+      setSourceName(String(json.data?.source_name ?? (sourceName || selectedFile.name)));
+      setAttachments(Array.isArray(json.data?.attachments) ? json.data.attachments : []);
+      toast.success("Source file uploaded.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Source file could not be uploaded.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const parseOcr = async () => {
     if (!sourceName || !sourceText) {
       toast.error("Add source name and OCR text first.");
       return;
     }
+
     setSaving(true);
     try {
-      const response = await fetch("/api/v1/ocr/documents", {
+      const response = await fetch(parsedId ? `/api/v1/ocr/documents/${parsedId}/parse` : "/api/v1/ocr/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ document_type: "bill", source_name: sourceName, source_text: sourceText, notes })
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(json.error?.message ?? "OCR parse failed.");
+
       const extracted = json.data?.extracted_fields ?? json.data ?? {};
-      setParsedId(typeof json.data?.id === "string" ? json.data.id : null);
+      if (!parsedId && typeof json.data?.id === "string") {
+        setParsedId(json.data.id);
+      }
+
       setVendorName(String(extracted.vendor_name ?? ""));
       setBillNumber(String(extracted.invoice_number ?? extracted.bill_number ?? ""));
       setIssueDate(String(extracted.issue_date ?? ""));
@@ -66,6 +109,22 @@ export function OcrDraftBuilder() {
       setSubtotal(Number(extracted.subtotal ?? 0));
       setTaxTotal(Number(extracted.tax_total ?? 0));
       setTotal(Number(extracted.total ?? 0));
+
+      const extractedLines = Array.isArray(extracted.line_items)
+        ? extracted.line_items
+            .filter((line: unknown): line is Record<string, unknown> => typeof line === "object" && line !== null && !Array.isArray(line))
+            .map((line: Record<string, unknown>) => ({
+              description: String(line.description ?? ""),
+              quantity: Number(line.quantity ?? 1),
+              rate: Number(line.rate ?? 0),
+              gst_rate: Number(line.gst_rate ?? 18),
+              discount: Number(line.discount ?? 0)
+            }))
+        : [];
+      if (extractedLines.length > 0) {
+        setLines(extractedLines);
+      }
+
       setParsed(true);
       toast.success("OCR draft parsed. Review and save.");
     } catch (error) {
@@ -80,6 +139,7 @@ export function OcrDraftBuilder() {
       toast.error("Source and vendor details are required.");
       return;
     }
+
     setSaving(true);
     try {
       const payload = {
@@ -87,6 +147,7 @@ export function OcrDraftBuilder() {
         source_name: sourceName,
         source_text: sourceText,
         notes,
+        status: "draft_created",
         extracted_fields_override: {
           vendor_name: vendorName,
           invoice_number: billNumber,
@@ -105,6 +166,7 @@ export function OcrDraftBuilder() {
           }))
         }
       };
+
       const response = await fetch(parsedId ? `/api/v1/ocr/documents/${parsedId}` : "/api/v1/ocr/documents", {
         method: parsedId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -112,6 +174,13 @@ export function OcrDraftBuilder() {
       });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(json.error?.message ?? "OCR draft could not be saved.");
+
+      if (!parsedId && typeof json.data?.id === "string") {
+        setParsedId(json.data.id);
+      }
+      if (Array.isArray(json.data?.attachments)) {
+        setAttachments(json.data.attachments);
+      }
       toast.success("OCR draft saved.");
       router.push("/ocr-bills");
     } catch (error) {
@@ -137,11 +206,37 @@ export function OcrDraftBuilder() {
             <Input value={notes} onChange={(event) => setNotes(event.target.value)} className="mt-2" />
           </div>
           <div className="md:col-span-2">
+            <Label>Source file</Label>
+            <Input type="file" className="mt-2" onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span>Upload the supplier PDF/image for audit traceability.</span>
+              <Button type="button" variant="secondary" onClick={uploadSourceFile} disabled={uploading || !selectedFile}>
+                {uploading ? "Uploading..." : "Upload source file"}
+              </Button>
+            </div>
+            {attachments.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {attachments.map((attachment) => (
+                  <div key={attachment.id} className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                    <span>{attachment.file_name}</span>
+                    {attachment.signed_url ? (
+                      <Link href={attachment.signed_url} target="_blank" className="text-primary underline">
+                        Open
+                      </Link>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <div className="md:col-span-2">
             <Label>OCR text</Label>
             <Textarea value={sourceText} onChange={(event) => setSourceText(event.target.value)} className="mt-2 min-h-[220px]" />
           </div>
           <div className="md:col-span-2 flex justify-end">
-            <Button type="button" variant="secondary" onClick={parseOcr} disabled={saving}>{saving ? "Parsing..." : "Parse OCR text"}</Button>
+            <Button type="button" variant="secondary" onClick={parseOcr} disabled={saving}>
+              {saving ? "Parsing..." : parsedId ? "Re-parse OCR text" : "Parse OCR text"}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -179,18 +274,22 @@ export function OcrDraftBuilder() {
             <Label>Total</Label>
             <Input type="number" step="0.01" value={total} onChange={(event) => setTotal(Number(event.target.value || 0))} className="mt-2" />
           </div>
-          <div className="flex items-end text-sm text-muted-foreground">{parsed ? "Parsed OCR values loaded. You can override them before saving." : "Optional: parse OCR first, or enter reviewed values manually."}</div>
+          <div className="flex items-end text-sm text-muted-foreground">
+            {parsed ? "Parsed OCR values loaded. You can override them before saving." : "Upload a source file, paste OCR text, then review the extracted fields before bill creation."}
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Reviewed line items</CardTitle>
-          <Button type="button" variant="secondary" onClick={() => setLines((current) => [...current, emptyLine()])}>Add line</Button>
+          <Button type="button" variant="secondary" onClick={() => setLines((current) => [...current, emptyLine()])}>
+            Add line
+          </Button>
         </CardHeader>
         <CardContent className="space-y-3">
           {lines.map((line, index) => (
-            <div key={index} className="grid gap-3 rounded-lg border p-4 md:grid-cols-5">
+            <div key={index} className="grid gap-3 rounded-lg border p-4 md:grid-cols-6">
               <div className="md:col-span-2">
                 <Label>Description</Label>
                 <Input value={line.description} onChange={(event) => setLines((current) => current.map((entry, rowIndex) => rowIndex === index ? { ...entry, description: event.target.value } : entry))} className="mt-2" />
@@ -207,6 +306,10 @@ export function OcrDraftBuilder() {
                 <Label>GST %</Label>
                 <Input type="number" step="0.01" value={line.gst_rate} onChange={(event) => setLines((current) => current.map((entry, rowIndex) => rowIndex === index ? { ...entry, gst_rate: Number(event.target.value || 0) } : entry))} className="mt-2" />
               </div>
+              <div>
+                <Label>Discount</Label>
+                <Input type="number" step="0.01" value={line.discount} onChange={(event) => setLines((current) => current.map((entry, rowIndex) => rowIndex === index ? { ...entry, discount: Number(event.target.value || 0) } : entry))} className="mt-2" />
+              </div>
             </div>
           ))}
           <div className="grid gap-2 text-sm md:grid-cols-3">
@@ -219,7 +322,9 @@ export function OcrDraftBuilder() {
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={() => router.push("/ocr-bills")}>Cancel</Button>
-        <Button type="button" onClick={saveReviewedDraft} disabled={saving}>{saving ? "Saving..." : "Save reviewed OCR draft"}</Button>
+        <Button type="button" onClick={saveReviewedDraft} disabled={saving}>
+          {saving ? "Saving..." : "Save reviewed OCR draft"}
+        </Button>
       </div>
     </div>
   );

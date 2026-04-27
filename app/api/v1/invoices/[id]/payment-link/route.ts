@@ -14,6 +14,10 @@ function asNumber(value: unknown) {
   return typeof value === "number" ? value : Number(value ?? 0);
 }
 
+function asObject(value: unknown) {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const auth = await requireApiContext();
   if (!auth.ok) {
@@ -31,7 +35,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     return fail(404, { code: "INVOICE_NOT_FOUND", message: "Invoice not found." });
   }
 
-  const [{ data: contact }, { data: paymentLink }] = await Promise.all([
+  const [{ data: contact }, { data: paymentLink }, { data: refundEvents }] = await Promise.all([
     auth.context.supabase
       .from("contacts")
       .select("display_name, email, phone")
@@ -45,10 +49,30 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       .eq("invoice_id", params.id)
       .order("created_at", { ascending: false })
       .limit(1)
-      .maybeSingle()
+      .maybeSingle(),
+    auth.context.supabase
+      .from("gateway_events")
+      .select("provider_refund_id, provider_payment_id, event_type, payload, created_at")
+      .eq("org_id", auth.context.orgId)
+      .eq("invoice_id", params.id)
+      .not("provider_refund_id", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(10)
   ]);
 
   const share = await buildInvoiceShareData(auth.context, params.id).catch(() => null);
+  const refunds = (refundEvents ?? []).map((event) => {
+    const payload = asObject(event.payload);
+    const refundEntity = asObject(asObject(asObject(payload?.payload)?.refund)?.entity);
+    return {
+      refund_id: event.provider_refund_id,
+      payment_id: event.provider_payment_id,
+      event_type: event.event_type,
+      status: asString(refundEntity?.status) ?? "processed",
+      amount: asNumber(refundEntity?.amount) / 100,
+      created_at: event.created_at
+    };
+  });
 
   return ok({
     invoice: {
@@ -58,6 +82,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
       customer_phone: contact?.phone ?? null
     },
     payment_link: paymentLink,
+    refunds,
     share,
     configured: isRazorpayConfigured(),
     webhook_url: getRazorpayWebhookUrl()

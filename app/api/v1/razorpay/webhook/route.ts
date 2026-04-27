@@ -195,6 +195,17 @@ export async function POST(request: Request) {
       return ok({ received: true, ignored: true, reason: "missing_refund_mapping" });
     }
 
+    const { data: existingRefundEvent } = await admin
+      .from("gateway_events")
+      .select("id")
+      .eq("provider", "razorpay")
+      .eq("provider_refund_id", refundId)
+      .maybeSingle();
+
+    if (existingRefundEvent?.id) {
+      return ok({ received: true, duplicate: true, refund_id: refundId });
+    }
+
     const { data: priorEvent } = await admin
       .from("gateway_events")
       .select("org_id, invoice_id, provider_link_id")
@@ -256,6 +267,21 @@ export async function POST(request: Request) {
       provider_refund_id: refundId,
       payload: payload as Json,
       processed_at: new Date().toISOString()
+    });
+
+    await admin.from("audit_logs").insert({
+      org_id: priorEvent.org_id,
+      user_id: link.created_by,
+      entity_type: "invoice_payment_link",
+      entity_id: link.id,
+      action: "refund_synced",
+      new_values: {
+        provider: "razorpay",
+        refund_id: refundId,
+        payment_id: paymentId,
+        amount: refundAmount,
+        status: asString(refundEntity.status) ?? "processed"
+      }
     });
 
     await syncInvoiceStatus(admin, priorEvent.invoice_id, Number(link.amount_paid ?? 0), refundedTotal);

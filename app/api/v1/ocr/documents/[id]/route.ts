@@ -1,5 +1,6 @@
-import { requireApiContext } from "@/lib/api/auth";
+import { canWriteData, requireApiContext } from "@/lib/api/auth";
 import { fail, ok } from "@/lib/api/responses";
+import { listEntityAttachments, signAttachmentUrls } from "@/lib/storage/attachments";
 
 export const dynamic = "force-dynamic";
 
@@ -23,12 +24,17 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     .single();
 
   if (error || !data) return fail(404, { code: "NOT_FOUND", message: "OCR document not found." });
-  return ok(data);
+  const attachments = await listEntityAttachments(auth.context.orgId, "ocr_document", params.id).catch(() => []);
+  return ok({
+    ...data,
+    attachments: await signAttachmentUrls(attachments)
+  });
 }
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const auth = await requireApiContext();
   if (!auth.ok) return fail(auth.status, { code: auth.code, message: auth.message });
+  if (!canWriteData(auth.context.role)) return fail(403, { code: "READ_ONLY_ROLE", message: "Your role is read-only." });
 
   const json = await parseJson(request);
   const override = typeof json.extracted_fields_override === "object" && json.extracted_fields_override !== null && !Array.isArray(json.extracted_fields_override)
@@ -51,7 +57,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       source_text: typeof json.source_text === "string" ? json.source_text : undefined,
       notes: typeof json.notes === "string" ? json.notes : undefined,
       extracted_fields: override ? { ...(existing.extracted_fields ?? {}), ...override } : existing.extracted_fields,
-      status: "reviewed"
+      status: typeof json.status === "string" ? json.status : "draft_created"
     })
     .eq("org_id", auth.context.orgId)
     .eq("id", params.id)
@@ -59,5 +65,9 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     .single();
 
   if (error || !data) return fail(400, { code: "UPDATE_FAILED", message: error?.message ?? "OCR document could not be updated." });
-  return ok(data);
+  const attachments = await listEntityAttachments(auth.context.orgId, "ocr_document", params.id).catch(() => []);
+  return ok({
+    ...data,
+    attachments: await signAttachmentUrls(attachments)
+  });
 }

@@ -32,6 +32,14 @@ type PaymentLinkData = {
     amount_refunded: number;
     callback_url: string | null;
   } | null;
+  refunds: Array<{
+    refund_id: string | null;
+    payment_id: string | null;
+    event_type: string;
+    status: string;
+    amount: number;
+    created_at: string;
+  }>;
   share: {
     pdfUrl: string;
     whatsappUrl: string;
@@ -196,6 +204,22 @@ export function InvoicePaymentLinkWorkspace({ invoiceId }: { invoiceId: string }
           ) : (
             <p className="text-muted-foreground">No payment link has been created for this invoice yet.</p>
           )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>Refund history</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          {(data?.refunds ?? []).length === 0 ? <p className="text-muted-foreground">No refund events have been synced for this invoice yet.</p> : null}
+          {(data?.refunds ?? []).map((refund) => (
+            <div key={`${refund.refund_id ?? refund.created_at}`} className="grid gap-2 rounded-md border p-3 md:grid-cols-4">
+              <span>{refund.refund_id ?? "Refund"}</span>
+              <span>{formatMoney(refund.amount)}</span>
+              <span>{refund.status}</span>
+              <span>{new Date(refund.created_at).toLocaleString("en-IN")}</span>
+            </div>
+          ))}
         </CardContent>
       </Card>
       {data?.share ? (

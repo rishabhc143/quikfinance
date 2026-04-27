@@ -364,6 +364,19 @@ export type OcrDocumentRow = {
   updated_at: string | null;
 };
 
+export type DocumentAttachmentRow = {
+  id: string;
+  org_id: string;
+  entity_type: string;
+  entity_id: string;
+  file_name: string;
+  file_path: string;
+  content_type: string;
+  size_bytes: number;
+  uploaded_by: string | null;
+  created_at: string;
+};
+
 export type InvoicePaymentLinkRow = {
   id: string;
   org_id: string;
@@ -496,6 +509,7 @@ export type Database = {
       import_jobs: TableShape<ImportJobRow, InsertOf<ImportJobRow>, UpdateOf<ImportJobRow>>;
       period_locks: TableShape<PeriodLockRow, InsertOf<PeriodLockRow>, UpdateOf<PeriodLockRow>>;
       ocr_documents: TableShape<OcrDocumentRow, InsertOf<OcrDocumentRow>, UpdateOf<OcrDocumentRow>>;
+      document_attachments: TableShape<DocumentAttachmentRow, InsertOf<DocumentAttachmentRow>, UpdateOf<DocumentAttachmentRow>>;
       invoice_payment_links: TableShape<InvoicePaymentLinkRow, InsertOf<InvoicePaymentLinkRow>, UpdateOf<InvoicePaymentLinkRow>>;
       gateway_events: TableShape<GatewayEventRow, InsertOf<GatewayEventRow>, UpdateOf<GatewayEventRow>>;
       audit_logs: TableShape<AuditLogRow, InsertOf<AuditLogRow>, UpdateOf<AuditLogRow>>;

@@ -723,14 +723,16 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     apiPath: "/api/v1/ocr/documents",
     newPath: "/ocr-bills/new",
     primaryAction: "New OCR draft",
-    columns: [
-      { key: "created_at", label: "Created", kind: "date" },
-      { key: "source_name", label: "Source" },
-      { key: "document_type", label: "Type" },
-      { key: "vendor_name", label: "Vendor" },
-      { key: "total", label: "Total", kind: "money", align: "right" },
-      { key: "status", label: "Status", kind: "status" }
-    ],
+      columns: [
+        { key: "created_at", label: "Created", kind: "date" },
+        { key: "source_name", label: "Source" },
+        { key: "file_name", label: "File" },
+        { key: "document_type", label: "Type" },
+        { key: "vendor_name", label: "Vendor" },
+        { key: "attachment_count", label: "Attachments", align: "right" },
+        { key: "total", label: "Total", kind: "money", align: "right" },
+        { key: "status", label: "Status", kind: "status" }
+      ],
     rows: [
       { id: "ocr-1", created_at: today, source_name: "Metro April bill scan", document_type: "bill", vendor_name: "Metro Cloud Hosting", total: money(1180), status: "parsed" }
     ],

@@ -1,6 +1,7 @@
-import { requireApiContext } from "@/lib/api/auth";
+import { canWriteData, requireApiContext } from "@/lib/api/auth";
 import { errorMessage, fail, ok } from "@/lib/api/responses";
 import { extractDocumentFields } from "@/lib/ocr/parser";
+import { listEntityAttachments } from "@/lib/storage/attachments";
 import { ocrDocumentSchema } from "@/lib/validations/automation.schema";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +22,14 @@ export async function GET() {
     return fail(500, { code: "OCR_LIST_FAILED", message: error.message });
   }
 
+  const attachments = data?.length
+    ? await Promise.all((data ?? []).map(async (row) => ({ id: row.id, attachments: await listEntityAttachments(auth.context.orgId, "ocr_document", String(row.id)).catch(() => []) })))
+    : [];
+  const attachmentMap = new Map(attachments.map((entry) => [entry.id, entry.attachments]));
+
   const rows = (data ?? []).map((row) => {
     const extracted = (row.extracted_fields ?? {}) as Record<string, unknown>;
+    const rowAttachments = attachmentMap.get(String(row.id)) ?? [];
     return {
       id: row.id,
       created_at: row.created_at,
@@ -31,7 +38,9 @@ export async function GET() {
       vendor_name: typeof extracted.vendor_name === "string" ? extracted.vendor_name : "Unknown vendor",
       total: typeof extracted.total === "number" ? extracted.total : Number(extracted.total ?? 0),
       status: row.status,
-      linked_entity_id: row.linked_entity_id
+      linked_entity_id: row.linked_entity_id,
+      attachment_count: rowAttachments.length,
+      file_name: rowAttachments[0]?.file_name ?? null
     };
   });
 
@@ -42,6 +51,9 @@ export async function POST(request: Request) {
   const auth = await requireApiContext();
   if (!auth.ok) {
     return fail(auth.status, { code: auth.code, message: auth.message });
+  }
+  if (!canWriteData(auth.context.role)) {
+    return fail(403, { code: "READ_ONLY_ROLE", message: "Your role is read-only." });
   }
 
   try {
