@@ -43,6 +43,88 @@ function normalizeAddress(value: unknown) {
   return {};
 }
 
+function deriveFiscalDates(startMonth: number | null | undefined) {
+  const month = typeof startMonth === "number" && startMonth >= 1 && startMonth <= 12 ? startMonth : 4;
+  const now = new Date();
+  const currentYear = now.getUTCFullYear();
+  const currentMonth = now.getUTCMonth() + 1;
+  const startYear = currentMonth >= month ? currentYear : currentYear - 1;
+  const start = `${startYear}-${String(month).padStart(2, "0")}-01`;
+  const endDate = new Date(Date.UTC(startYear + 1, month - 1, 0));
+  const end = `${endDate.getUTCFullYear()}-${String(endDate.getUTCMonth() + 1).padStart(2, "0")}-${String(endDate.getUTCDate()).padStart(2, "0")}`;
+  return { start, end };
+}
+
+function normalizeCompany(company: CompanyLike): CompanyLike {
+  const address = normalizeAddress(company.address);
+  const meta = typeof address._meta === "object" && address._meta !== null && !Array.isArray(address._meta) ? (address._meta as Record<string, unknown>) : {};
+  const fiscalYearStartMonth =
+    typeof company.fiscal_year_start_month === "number"
+      ? company.fiscal_year_start_month
+      : typeof company.fiscal_year_start === "number"
+        ? company.fiscal_year_start
+        : typeof meta.fiscal_year_start_month === "number"
+          ? meta.fiscal_year_start_month
+          : 4;
+  const derivedDates = deriveFiscalDates(fiscalYearStartMonth);
+
+  return {
+    ...company,
+    website: typeof company.website === "string" ? company.website : typeof meta.website === "string" ? meta.website : null,
+    business_type: typeof company.business_type === "string" ? company.business_type : typeof meta.business_type === "string" ? meta.business_type : null,
+    industry: typeof company.industry === "string" ? company.industry : typeof meta.industry === "string" ? meta.industry : null,
+    gst_registered:
+      typeof company.gst_registered === "boolean"
+        ? company.gst_registered
+        : typeof meta.gst_registered === "boolean"
+          ? meta.gst_registered
+          : hasText(company.gstin),
+    gst_filing_frequency:
+      typeof company.gst_filing_frequency === "string"
+        ? company.gst_filing_frequency
+        : typeof meta.gst_filing_frequency === "string"
+          ? meta.gst_filing_frequency
+          : "monthly",
+    place_of_supply:
+      typeof company.place_of_supply === "string"
+        ? company.place_of_supply
+        : typeof meta.place_of_supply === "string"
+          ? meta.place_of_supply
+          : company.state_code ?? null,
+    fiscal_year_start_month: fiscalYearStartMonth,
+    fiscal_year_start_date:
+      typeof company.fiscal_year_start_date === "string"
+        ? company.fiscal_year_start_date
+        : typeof meta.fiscal_year_start_date === "string"
+          ? meta.fiscal_year_start_date
+          : derivedDates.start,
+    fiscal_year_end_date:
+      typeof company.fiscal_year_end_date === "string"
+        ? company.fiscal_year_end_date
+        : typeof meta.fiscal_year_end_date === "string"
+          ? meta.fiscal_year_end_date
+          : derivedDates.end,
+    accounting_method:
+      typeof company.accounting_method === "string"
+        ? company.accounting_method
+        : typeof meta.accounting_method === "string"
+          ? meta.accounting_method
+          : "accrual",
+    invoice_next_number:
+      typeof company.invoice_next_number === "number"
+        ? company.invoice_next_number
+        : typeof meta.invoice_next_number === "number"
+          ? meta.invoice_next_number
+          : 1,
+    payment_terms:
+      typeof company.payment_terms === "string"
+        ? company.payment_terms
+        : typeof meta.payment_terms === "string"
+          ? meta.payment_terms
+          : "Net 30"
+  };
+}
+
 export function computeSetupSnapshot(company: CompanyLike, counts: {
   accounts: number;
   bankAccounts: number;
@@ -50,28 +132,29 @@ export function computeSetupSnapshot(company: CompanyLike, counts: {
   items: number;
   invoices: number;
 }): CompanySetupSnapshot {
-  const address = normalizeAddress(company.address);
-  const gstRegistered = normalizeBoolean(company.gst_registered) || hasText(company.gstin);
+  const normalizedCompany = normalizeCompany(company);
+  const address = normalizeAddress(normalizedCompany.address);
+  const gstRegistered = normalizeBoolean(normalizedCompany.gst_registered) || hasText(normalizedCompany.gstin);
   const requiredMissing: string[] = [];
 
-  if (!hasText(company.name)) requiredMissing.push("company_name");
-  if (!hasText(company.base_currency)) requiredMissing.push("base_currency");
-  if (!hasText(company.country)) requiredMissing.push("country");
-  if (!hasText(company.city)) requiredMissing.push("city");
-  if (!hasText(company.state_code)) requiredMissing.push("state_code");
-  if (!hasNumber(company.fiscal_year_start_month)) requiredMissing.push("fiscal_year_start_month");
-  if (!hasText(company.fiscal_year_start_date)) requiredMissing.push("fiscal_year_start_date");
-  if (!hasText(company.fiscal_year_end_date)) requiredMissing.push("fiscal_year_end_date");
-  if (!hasText(company.invoice_prefix)) requiredMissing.push("invoice_prefix");
-  if (!hasNumber(company.invoice_next_number)) requiredMissing.push("invoice_next_number");
-  if (gstRegistered && !hasText(company.gstin)) requiredMissing.push("gstin");
-  if (gstRegistered && !hasText(company.place_of_supply)) requiredMissing.push("place_of_supply");
-  if (!hasText(String(address.line1 ?? "")) && !hasText(company.address_line1)) requiredMissing.push("address");
+  if (!hasText(normalizedCompany.name)) requiredMissing.push("company_name");
+  if (!hasText(normalizedCompany.base_currency)) requiredMissing.push("base_currency");
+  if (!hasText(normalizedCompany.country)) requiredMissing.push("country");
+  if (!hasText(normalizedCompany.city)) requiredMissing.push("city");
+  if (!hasText(normalizedCompany.state_code)) requiredMissing.push("state_code");
+  if (!hasNumber(normalizedCompany.fiscal_year_start_month)) requiredMissing.push("fiscal_year_start_month");
+  if (!hasText(normalizedCompany.fiscal_year_start_date)) requiredMissing.push("fiscal_year_start_date");
+  if (!hasText(normalizedCompany.fiscal_year_end_date)) requiredMissing.push("fiscal_year_end_date");
+  if (!hasText(normalizedCompany.invoice_prefix)) requiredMissing.push("invoice_prefix");
+  if (!hasNumber(normalizedCompany.invoice_next_number)) requiredMissing.push("invoice_next_number");
+  if (gstRegistered && !hasText(normalizedCompany.gstin)) requiredMissing.push("gstin");
+  if (gstRegistered && !hasText(normalizedCompany.place_of_supply)) requiredMissing.push("place_of_supply");
+  if (!hasText(String(address.line1 ?? "")) && !hasText(normalizedCompany.address_line1)) requiredMissing.push("address");
 
   const checklist: SetupChecklistItem[] = [
-    { key: "company_profile", label: "Add company profile", done: hasText(company.name) && hasText(company.country) && hasText(company.city) && hasText(company.state_code) },
-    { key: "fiscal_year", label: "Configure fiscal year", done: hasText(company.fiscal_year_start_date) && hasText(company.fiscal_year_end_date) },
-    { key: "gst_settings", label: "Configure GST settings", done: !gstRegistered || (hasText(company.gstin) && hasText(company.place_of_supply)) },
+    { key: "company_profile", label: "Add company profile", done: hasText(normalizedCompany.name) && hasText(normalizedCompany.country) && hasText(normalizedCompany.city) && hasText(normalizedCompany.state_code) },
+    { key: "fiscal_year", label: "Configure fiscal year", done: hasText(normalizedCompany.fiscal_year_start_date) && hasText(normalizedCompany.fiscal_year_end_date) },
+    { key: "gst_settings", label: "Configure GST settings", done: !gstRegistered || (hasText(normalizedCompany.gstin) && hasText(normalizedCompany.place_of_supply)) },
     { key: "chart_of_accounts", label: "Review chart of accounts", done: counts.accounts > 0 },
     { key: "bank_account", label: "Add bank account", done: counts.bankAccounts > 0 },
     { key: "first_customer", label: "Add first customer", done: counts.customers > 0 },
@@ -83,7 +166,7 @@ export function computeSetupSnapshot(company: CompanyLike, counts: {
   const setupCompleted = requiredMissing.length === 0 && completed >= 4;
 
   return {
-    company,
+    company: normalizedCompany,
     setup_completed: setupCompleted,
     required_missing: requiredMissing,
     checklist,

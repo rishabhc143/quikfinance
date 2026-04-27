@@ -54,7 +54,7 @@ function normalizeStateCode(value: unknown) {
 async function getOrganization(context: ApiContext) {
   const { data, error } = await context.supabase
     .from("organizations")
-    .select("id, state_code, base_currency, invoice_prefix, invoice_next_number")
+    .select("*")
     .eq("id", context.orgId)
     .single();
 
@@ -68,7 +68,7 @@ async function getOrganization(context: ApiContext) {
     base_currency: string;
     invoice_prefix: string;
     invoice_next_number: number;
-  };
+  } & { _supports_invoice_next_number?: boolean; _fallback_invoice_next_number?: number } & Record<string, unknown>;
 }
 
 async function getContactStateCode(context: ApiContext, contactId: string | null | undefined) {
@@ -137,6 +137,7 @@ export async function computeDocumentTotals(context: ApiContext, args: {
           gst_rate: Number(args.taxTotal ?? 0) > 0 && Number(args.subtotal ?? 0) > 0 ? (Number(args.taxTotal ?? 0) / Number(args.subtotal ?? 0)) * 100 : 0
         }
       ];
+  const usingLineItems = lineItems.length > 0;
 
   const taxRateMap = await getTaxRates(
     context,
@@ -174,7 +175,7 @@ export async function computeDocumentTotals(context: ApiContext, args: {
     };
   });
 
-  const total = toMoney(args.total ?? taxableTotal + taxTotal);
+  const total = toMoney(usingLineItems ? taxableTotal + taxTotal : args.total ?? taxableTotal + taxTotal);
   const cgstAmount = sameState ? toMoney(taxTotal / 2) : 0;
   const sgstAmount = sameState ? toMoney(taxTotal / 2) : 0;
   const igstAmount = sameState ? 0 : taxTotal;
@@ -198,11 +199,44 @@ export async function computeDocumentTotals(context: ApiContext, args: {
 
 async function nextSequenceNumber(context: ApiContext, prefix: string) {
   const organization = await getOrganization(context);
-  const next = Number(organization.invoice_next_number ?? 1);
+  const address =
+    typeof organization.address === "object" && organization.address !== null && !Array.isArray(organization.address)
+      ? (organization.address as Record<string, unknown>)
+      : {};
+  const meta =
+    typeof address._meta === "object" && address._meta !== null && !Array.isArray(address._meta)
+      ? (address._meta as Record<string, unknown>)
+      : {};
+  const supportsInvoiceNextNumber = Object.prototype.hasOwnProperty.call(organization, "invoice_next_number");
+  const next = Number(
+    typeof organization.invoice_next_number === "number"
+      ? organization.invoice_next_number
+      : typeof meta.invoice_next_number === "number"
+        ? meta.invoice_next_number
+        : 1
+  );
   const number = `${prefix}-${String(next).padStart(4, "0")}`;
-  const { error } = await context.supabase.from("organizations").update({ invoice_next_number: next + 1 }).eq("id", context.orgId);
-  if (error) {
-    throw new Error(error.message);
+  if (supportsInvoiceNextNumber) {
+    const { error } = await context.supabase.from("organizations").update({ invoice_next_number: next + 1 }).eq("id", context.orgId);
+    if (error) {
+      throw new Error(error.message);
+    }
+  } else {
+    const { error } = await context.supabase
+      .from("organizations")
+      .update({
+        address: {
+          ...address,
+          _meta: {
+            ...meta,
+            invoice_next_number: next + 1
+          }
+        }
+      })
+      .eq("id", context.orgId);
+    if (error) {
+      throw new Error(error.message);
+    }
   }
   return number;
 }
@@ -380,9 +414,9 @@ export async function createInvoiceTransaction(context: ApiContext, input: Recor
   const { placeOfSupply, computation } = await computeDocumentTotals(context, {
     contactId: String(input.contact_id),
     placeOfSupply: typeof input.place_of_supply === "string" ? input.place_of_supply : null,
-    subtotal: Number(input.subtotal ?? 0),
-    taxTotal: Number(input.tax_total ?? 0),
-    total: Number(input.total ?? 0),
+    subtotal: typeof input.subtotal === "number" ? input.subtotal : undefined,
+    taxTotal: typeof input.tax_total === "number" ? input.tax_total : undefined,
+    total: typeof input.total === "number" ? input.total : undefined,
     lineItems
   });
 
@@ -463,9 +497,9 @@ export async function createBillTransaction(context: ApiContext, input: Record<s
   const { placeOfSupply, computation } = await computeDocumentTotals(context, {
     contactId: String(input.contact_id),
     placeOfSupply: typeof input.place_of_supply === "string" ? input.place_of_supply : null,
-    subtotal: Number(input.subtotal ?? 0),
-    taxTotal: Number(input.tax_total ?? 0),
-    total: Number(input.total ?? 0),
+    subtotal: typeof input.subtotal === "number" ? input.subtotal : undefined,
+    taxTotal: typeof input.tax_total === "number" ? input.tax_total : undefined,
+    total: typeof input.total === "number" ? input.total : undefined,
     lineItems
   });
 

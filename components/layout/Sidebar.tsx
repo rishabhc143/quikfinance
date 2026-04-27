@@ -17,7 +17,7 @@ function isActivePath(pathname: string, href: string) {
 }
 
 export function Sidebar({ mobile = false }: { mobile?: boolean }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "/";
   const { t } = useI18n();
   const activeGroups = useMemo(
     () =>
