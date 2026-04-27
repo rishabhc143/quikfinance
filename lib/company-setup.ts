@@ -70,6 +70,12 @@ function normalizeCompany(company: CompanyLike): CompanyLike {
 
   return {
     ...company,
+    address_line1: typeof company.address_line1 === "string" ? company.address_line1 : typeof address.line1 === "string" ? address.line1 : null,
+    address_line2: typeof company.address_line2 === "string" ? company.address_line2 : typeof address.line2 === "string" ? address.line2 : null,
+    city: typeof company.city === "string" ? company.city : typeof address.city === "string" ? address.city : null,
+    state_code: typeof company.state_code === "string" ? company.state_code : typeof address.state_code === "string" ? address.state_code : null,
+    country: typeof company.country === "string" ? company.country : typeof address.country === "string" ? address.country : null,
+    pin_code: typeof company.pin_code === "string" ? company.pin_code : typeof address.pin_code === "string" ? address.pin_code : null,
     website: typeof company.website === "string" ? company.website : typeof meta.website === "string" ? meta.website : null,
     business_type: typeof company.business_type === "string" ? company.business_type : typeof meta.business_type === "string" ? meta.business_type : null,
     industry: typeof company.industry === "string" ? company.industry : typeof meta.industry === "string" ? meta.industry : null,
