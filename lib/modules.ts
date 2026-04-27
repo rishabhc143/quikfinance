@@ -348,7 +348,7 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     primaryAction: "New sales order",
     columns: [
       { key: "sales_order_number", label: "Order" },
-      { key: "contact_id", label: "Customer" },
+      { key: "customer", label: "Customer" },
       { key: "issue_date", label: "Date", kind: "date" },
       { key: "due_date", label: "Expected", kind: "date" },
       { key: "total", label: "Total", kind: "money", align: "right" },

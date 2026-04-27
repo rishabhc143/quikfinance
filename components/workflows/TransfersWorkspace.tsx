@@ -36,6 +36,17 @@ type TransferRow = {
   reversal_journal_entry_id?: string | null;
   reversal_date?: string | null;
   reversed_at?: string | null;
+  history?: Array<{
+    action: string;
+    created_at: string;
+    status: string;
+    reference: string | null;
+    memo: string | null;
+    journal_entry_id: string | null;
+    reversal_journal_entry_id?: string | null;
+    reversal_date?: string | null;
+    reversed_at?: string | null;
+  }>;
 };
 
 export function TransfersWorkspace() {
@@ -47,6 +58,8 @@ export function TransfersWorkspace() {
   const [reference, setReference] = useState("");
   const [memo, setMemo] = useState("");
   const [status, setStatus] = useState<"draft" | "posted">("posted");
+  const [expandedTransferId, setExpandedTransferId] = useState<string | null>(null);
+  const [reversalMemos, setReversalMemos] = useState<Record<string, string>>({});
 
   const bankAccounts = useQuery({
     queryKey: ["transfer-bank-accounts"],
@@ -123,11 +136,11 @@ export function TransfersWorkspace() {
   });
 
   const reverseTransfer = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, memo }: { id: string; memo?: string }) => {
       const response = await fetch(`/api/v1/transfers/${id}/reverse`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reversal_date: todayISO() })
+        body: JSON.stringify({ reversal_date: todayISO(), memo: memo || null })
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
       if (!response.ok) {
@@ -136,6 +149,7 @@ export function TransfersWorkspace() {
     },
     onSuccess: async () => {
       toast.success("Transfer reversed.");
+      setReversalMemos({});
       await queryClient.invalidateQueries({ queryKey: ["internal-transfers"] });
       await queryClient.invalidateQueries({ queryKey: ["transfer-bank-accounts"] });
       await queryClient.invalidateQueries({ queryKey: ["module", "bank-accounts"] });
@@ -247,6 +261,7 @@ export function TransfersWorkspace() {
                   <div className="text-sm">{transfer.memo ?? "No memo provided."}</div>
                   {transfer.journal_entry_id ? <div className="text-xs text-muted-foreground">Journal: {transfer.journal_entry_id}</div> : null}
                   {transfer.reversal_journal_entry_id ? <div className="text-xs text-muted-foreground">Reversal journal: {transfer.reversal_journal_entry_id}</div> : null}
+                  {transfer.reversal_date ? <div className="text-xs text-muted-foreground">Reversal date: {transfer.reversal_date}</div> : null}
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <div className="font-medium">{formatMoney(transfer.amount)}</div>
@@ -254,6 +269,13 @@ export function TransfersWorkspace() {
                   <div className="flex flex-wrap justify-end gap-2">
                     <Button asChild variant="ghost"><Link href={`/bank-accounts/${transfer.source_bank_account_id}`}>Source</Link></Button>
                     <Button asChild variant="ghost"><Link href={`/bank-accounts/${transfer.destination_bank_account_id}`}>Destination</Link></Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setExpandedTransferId((current) => (current === transfer.id ? null : transfer.id))}
+                    >
+                      {expandedTransferId === transfer.id ? "Hide history" : "View history"}
+                    </Button>
                   </div>
                   {transfer.status === "draft" ? (
                     <Button variant="secondary" onClick={() => cancelTransfer.mutate(transfer.id)} disabled={cancelTransfer.isPending}>
@@ -261,12 +283,58 @@ export function TransfersWorkspace() {
                     </Button>
                   ) : null}
                   {transfer.status === "posted" ? (
-                    <Button variant="secondary" onClick={() => reverseTransfer.mutate(transfer.id)} disabled={reverseTransfer.isPending}>
+                    <Button
+                      variant="secondary"
+                      onClick={() => reverseTransfer.mutate({ id: transfer.id, memo: reversalMemos[transfer.id] })}
+                      disabled={reverseTransfer.isPending}
+                    >
                       {reverseTransfer.isPending ? "Reversing..." : "Reverse transfer"}
                     </Button>
                   ) : null}
                 </div>
               </div>
+              {transfer.status === "posted" ? (
+                <div className="mt-4 grid gap-2 lg:grid-cols-[1fr_auto]">
+                  <div>
+                    <Label htmlFor={`reversal-note-${transfer.id}`}>Reversal note</Label>
+                    <Textarea
+                      id={`reversal-note-${transfer.id}`}
+                      rows={2}
+                      value={reversalMemos[transfer.id] ?? ""}
+                      onChange={(event) => setReversalMemos((current) => ({ ...current, [transfer.id]: event.target.value }))}
+                      className="mt-2"
+                      placeholder="Reason for reversing this treasury move."
+                    />
+                  </div>
+                  <div className="flex items-end text-xs text-muted-foreground">
+                    Reversal posts an equal and opposite bank transfer entry.
+                  </div>
+                </div>
+              ) : null}
+              {expandedTransferId === transfer.id ? (
+                <div className="mt-4 rounded-xl bg-muted/30 p-4">
+                  <div className="mb-3 text-sm font-medium">Transfer history</div>
+                  {(transfer.history ?? []).length === 0 ? (
+                    <div className="text-sm text-muted-foreground">No transfer history available.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {(transfer.history ?? []).map((event, index) => (
+                        <div key={`${transfer.id}-${event.created_at}-${index}`} className="grid gap-1 border-l pl-4 text-sm">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium capitalize">{event.action}</span>
+                            <StatusBadge status={event.status} />
+                            <span className="text-xs text-muted-foreground">{new Date(event.created_at).toLocaleString("en-IN")}</span>
+                          </div>
+                          {event.reference ? <div className="text-muted-foreground">Reference: {event.reference}</div> : null}
+                          {event.memo ? <div>{event.memo}</div> : null}
+                          {event.journal_entry_id ? <div className="text-xs text-muted-foreground">Journal: {event.journal_entry_id}</div> : null}
+                          {event.reversal_journal_entry_id ? <div className="text-xs text-muted-foreground">Reversal journal: {event.reversal_journal_entry_id}</div> : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
           ))}
         </CardContent>

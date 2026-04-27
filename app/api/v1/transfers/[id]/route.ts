@@ -22,6 +22,18 @@ type TransferSnapshot = {
   reversed_at?: string | null;
 };
 
+type TransferHistoryEntry = {
+  action: string;
+  created_at: string;
+  status: string;
+  reference: string | null;
+  memo: string | null;
+  journal_entry_id: string | null;
+  reversal_journal_entry_id?: string | null;
+  reversal_date?: string | null;
+  reversed_at?: string | null;
+};
+
 async function audit(context: ApiContext, action: string, entityId: string, values: Json) {
   await context.supabase.from("audit_logs").insert({
     org_id: context.orgId,
@@ -54,6 +66,22 @@ function normalizeSnapshot(record: { entity_id: string | null; new_values: Json 
   };
 }
 
+function historyEntryFromAudit(record: { action: string; created_at: string; new_values: Json; entity_id: string | null }): TransferHistoryEntry | null {
+  const snapshot = normalizeSnapshot(record);
+  if (!snapshot) return null;
+  return {
+    action: record.action,
+    created_at: record.created_at,
+    status: snapshot.status,
+    reference: snapshot.reference,
+    memo: snapshot.memo,
+    journal_entry_id: snapshot.journal_entry_id,
+    reversal_journal_entry_id: snapshot.reversal_journal_entry_id ?? null,
+    reversal_date: snapshot.reversal_date ?? null,
+    reversed_at: snapshot.reversed_at ?? null
+  };
+}
+
 export const dynamic = "force-dynamic";
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
@@ -62,7 +90,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
   const { data, error } = await auth.context.supabase
     .from("audit_logs")
-    .select("entity_id, new_values, created_at")
+    .select("entity_id, action, new_values, created_at")
     .eq("org_id", auth.context.orgId)
     .eq("entity_type", "internal_transfer")
     .eq("entity_id", params.id)
@@ -78,7 +106,8 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     return fail(404, { code: "NOT_FOUND", message: "Transfer was not found." });
   }
 
-  return ok(snapshot);
+  const history = (data ?? []).map((row) => historyEntryFromAudit(row)).filter((row): row is TransferHistoryEntry => row !== null);
+  return ok({ ...snapshot, history });
 }
 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
@@ -96,7 +125,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   const current = await auth.context.supabase
     .from("audit_logs")
-    .select("entity_id, new_values, created_at")
+    .select("entity_id, action, new_values, created_at")
     .eq("org_id", auth.context.orgId)
     .eq("entity_type", "internal_transfer")
     .eq("entity_id", params.id)

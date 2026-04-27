@@ -32,7 +32,7 @@ type LineItem = {
   gst_rate: number;
 };
 
-type DocumentKind = "invoice" | "bill" | "quotation";
+type DocumentKind = "invoice" | "bill" | "quotation" | "sales-order";
 
 function emptyLine(): LineItem {
   return { item_id: null, description: "", quantity: 1, rate: 0, discount: 0, tax_rate_id: null, gst_rate: 0 };
@@ -45,6 +45,7 @@ function toMoney(value: number) {
 function kindLabel(kind: DocumentKind) {
   if (kind === "invoice") return "Invoice";
   if (kind === "bill") return "Bill";
+  if (kind === "sales-order") return "Sales order";
   return "Quotation";
 }
 
@@ -56,10 +57,11 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
   const isInvoice = kind === "invoice";
   const isBill = kind === "bill";
   const isQuotation = kind === "quotation";
+  const isSalesOrder = kind === "sales-order";
   const label = kindLabel(kind);
-  const apiBase = isInvoice ? "/api/v1/invoices" : isBill ? "/api/v1/bills" : "/api/v1/quotations";
+  const apiBase = isInvoice ? "/api/v1/invoices" : isBill ? "/api/v1/bills" : isQuotation ? "/api/v1/quotations" : "/api/v1/sales-orders";
   const contactsApi = isBill ? "/api/v1/vendors" : "/api/v1/customers";
-  const listPath = isInvoice ? "/invoices" : isBill ? "/bills" : "/quotations";
+  const listPath = isInvoice ? "/invoices" : isBill ? "/bills" : isQuotation ? "/quotations" : "/sales-orders";
 
   const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [items, setItems] = useState<ItemOption[]>([]);
@@ -97,7 +99,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
           fetch(contactsApi, { signal: controller.signal }),
           fetch("/api/v1/inventory", { signal: controller.signal }),
           fetch("/api/v1/taxes", { signal: controller.signal }),
-          isBill ? Promise.resolve(new Response(JSON.stringify({ data: {} }))) : fetch("/api/v1/templates/settings", { signal: controller.signal })
+          isBill || isSalesOrder ? Promise.resolve(new Response(JSON.stringify({ data: {} }))) : fetch("/api/v1/templates/settings", { signal: controller.signal })
         ]);
 
         const [contactJson, itemJson, taxJson, templateJson] = await Promise.all([
@@ -112,7 +114,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
         setTaxes(Array.isArray(taxJson.data) ? taxJson.data : []);
 
         const templateSettings = (templateJson.data ?? {}) as TemplateSettings;
-        if (!loadId && !isBill) {
+        if (!loadId && !isBill && !isSalesOrder) {
           const defaultTemplate = isInvoice ? templateSettings.default_invoice_template : templateSettings.default_quotation_template;
           const defaultTerms = isInvoice ? templateSettings.invoice_note_template : templateSettings.quotation_note_template;
           setTemplateType(defaultTemplate ?? "classic");
@@ -145,7 +147,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
             duplicateId
               ? ""
               : String(
-                  isInvoice ? record.invoice_number ?? "" : isBill ? record.bill_number ?? "" : record.quotation_number ?? ""
+                  isInvoice ? record.invoice_number ?? "" : isBill ? record.bill_number ?? "" : isQuotation ? record.quotation_number ?? "" : record.sales_order_number ?? ""
                 )
           );
           setRoundOff(Number(record.round_off ?? 0));
@@ -172,7 +174,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
 
     void boot();
     return () => controller.abort();
-  }, [apiBase, contactsApi, duplicateId, isBill, isInvoice, loadId]);
+  }, [apiBase, contactsApi, duplicateId, isBill, isInvoice, isQuotation, isSalesOrder, loadId]);
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce((sum, line) => sum + line.quantity * line.rate, 0);
@@ -253,10 +255,12 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
         payload.bill_number = documentNumber || undefined;
         payload.tds_amount = tdsAmount;
         payload.balance_due = totals.balance_due;
-      } else {
+      } else if (isQuotation) {
         payload.quotation_number = documentNumber || undefined;
         payload.terms = terms || null;
         payload.template_type = templateType;
+      } else {
+        payload.sales_order_number = documentNumber || undefined;
       }
 
       const response = await fetch(editId ? `${apiBase}/${editId}` : apiBase, {
@@ -308,15 +312,15 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
             </div>
           </div>
           <div>
-            <Label>{isInvoice ? "Invoice number" : isBill ? "Bill number" : "Quotation number"}</Label>
+            <Label>{isInvoice ? "Invoice number" : isBill ? "Bill number" : isQuotation ? "Quotation number" : "Sales order number"}</Label>
             <Input value={documentNumber} onChange={(event) => setDocumentNumber(event.target.value)} className="mt-2" />
           </div>
           <div>
-            <Label>{isQuotation ? "Quotation date" : "Issue date"}</Label>
+            <Label>{isQuotation ? "Quotation date" : isSalesOrder ? "Order date" : "Issue date"}</Label>
             <Input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} className="mt-2" />
           </div>
           <div>
-            <Label>{isQuotation ? "Expiry date" : "Due date"}</Label>
+            <Label>{isQuotation ? "Expiry date" : isSalesOrder ? "Expected date" : "Due date"}</Label>
             <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-2" />
           </div>
           <div>
@@ -326,7 +330,9 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
                 ? ["draft", "sent"]
                 : isBill
                   ? ["draft", "approved"]
-                  : ["draft", "sent", "accepted"]
+                  : isQuotation
+                    ? ["draft", "sent", "accepted"]
+                    : ["draft", "confirmed", "fulfilled", "cancelled"]
               ).map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
           </div>
@@ -341,18 +347,18 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
             <Label>Place of supply</Label>
             <Input value={placeOfSupply} onChange={(event) => setPlaceOfSupply(event.target.value)} className="mt-2" placeholder="27" />
           </div>
-          {!isBill ? (
+          {isInvoice || isQuotation ? (
             <div>
               <Label>{isQuotation ? "Proposal terms" : "Terms"}</Label>
               <Input value={terms} onChange={(event) => setTerms(event.target.value)} className="mt-2" />
             </div>
-          ) : (
+          ) : isBill ? (
             <div>
               <Label>TDS amount</Label>
               <Input type="number" step="0.01" value={tdsAmount} onChange={(event) => setTdsAmount(Number(event.target.value || 0))} className="mt-2" />
             </div>
-          )}
-          {!isBill ? (
+          ) : null}
+          {!isBill && !isSalesOrder ? (
             <div>
               <Label>Template</Label>
               <select value={templateType} onChange={(event) => setTemplateType(event.target.value as "classic" | "modern" | "minimal")} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">

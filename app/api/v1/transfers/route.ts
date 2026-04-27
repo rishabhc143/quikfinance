@@ -31,6 +31,18 @@ type TransferSnapshot = {
   created_at?: string;
 };
 
+type TransferHistoryEntry = {
+  action: string;
+  created_at: string;
+  status: string;
+  reference: string | null;
+  memo: string | null;
+  journal_entry_id: string | null;
+  reversal_journal_entry_id?: string | null;
+  reversal_date?: string | null;
+  reversed_at?: string | null;
+};
+
 function parsePaging(url: URL) {
   const page = Math.max(Number(url.searchParams.get("page") ?? "1"), 1);
   const perPage = Math.min(Math.max(Number(url.searchParams.get("per_page") ?? "25"), 1), 100);
@@ -81,6 +93,22 @@ function normalizeSnapshot(record: { entity_id: string | null; created_at: strin
   };
 }
 
+function historyEntryFromAudit(record: { action: string; created_at: string; new_values: Json; entity_id: string | null }): TransferHistoryEntry | null {
+  const snapshot = normalizeSnapshot(record);
+  if (!snapshot) return null;
+  return {
+    action: record.action,
+    created_at: record.created_at,
+    status: snapshot.status,
+    reference: snapshot.reference,
+    memo: snapshot.memo,
+    journal_entry_id: snapshot.journal_entry_id,
+    reversal_journal_entry_id: snapshot.reversal_journal_entry_id ?? null,
+    reversal_date: snapshot.reversal_date ?? null,
+    reversed_at: snapshot.reversed_at ?? null
+  };
+}
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -104,10 +132,20 @@ export async function GET(request: Request) {
   }
 
   const latestByEntity = new Map<string, TransferSnapshot>();
+  const historyByEntity = new Map<string, TransferHistoryEntry[]>();
   for (const row of data ?? []) {
     const snapshot = normalizeSnapshot(row);
     if (!snapshot || latestByEntity.has(snapshot.id)) continue;
     latestByEntity.set(snapshot.id, snapshot);
+  }
+
+  for (const row of data ?? []) {
+    if (typeof row.entity_id !== "string") continue;
+    const historyEntry = historyEntryFromAudit(row);
+    if (!historyEntry) continue;
+    const current = historyByEntity.get(row.entity_id) ?? [];
+    if (current.length < 6) current.push(historyEntry);
+    historyByEntity.set(row.entity_id, current);
   }
 
   let rows = [...latestByEntity.values()];
@@ -129,7 +167,8 @@ export async function GET(request: Request) {
   const paged = rows.slice(from, to + 1).map((row) => ({
     ...row,
     source_bank_name: bankMap.get(row.source_bank_account_id)?.name ?? "Source account",
-    destination_bank_name: bankMap.get(row.destination_bank_account_id)?.name ?? "Destination account"
+    destination_bank_name: bankMap.get(row.destination_bank_account_id)?.name ?? "Destination account",
+    history: historyByEntity.get(row.id) ?? []
   }));
 
   return ok(paged, { total: rows.length, page, per_page: perPage });

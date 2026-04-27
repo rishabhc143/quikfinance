@@ -30,7 +30,13 @@ export const quotationSchema = baseCommercialSchema.extend({
 
 export const salesOrderSchema = baseCommercialSchema.extend({
   sales_order_number: z.string().trim().min(2).max(40).optional(),
-  status: statusLabelSchema.default("draft")
+  status: z.enum(["draft", "confirmed", "fulfilled", "cancelled"]).default("draft"),
+  discount_total: moneySchema.default(0),
+  place_of_supply: z.string().trim().max(2).optional().nullable(),
+  line_items: z.array(lineItemSchema).min(1).optional()
+}).refine((value) => !value.due_date || value.due_date >= value.issue_date, {
+  message: "Expected date must be on or after order date.",
+  path: ["due_date"]
 });
 
 export const purchaseOrderSchema = baseCommercialSchema.extend({

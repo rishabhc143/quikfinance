@@ -1,6 +1,5 @@
-import { ModulePage } from "@/components/shared/ModulePage";
-import { getModuleConfig } from "@/lib/modules";
+import { BankFeedsWorkspace } from "@/components/banking/BankFeedsWorkspace";
 
 export default function BankFeedsPage() {
-  return <ModulePage config={getModuleConfig("bank-feeds")} />;
+  return <BankFeedsWorkspace />;
 }
