@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getServerEnv } from "@/lib/env";
-import { requireApiContext } from "@/lib/api/auth";
+import { canManageUsers, requireApiContext } from "@/lib/api/auth";
 import { fail, ok } from "@/lib/api/responses";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -14,10 +14,6 @@ type AdminAuthUser = {
     full_name?: string | null;
   };
 };
-
-function canManageUsers(role: string) {
-  return role === "owner" || role === "admin";
-}
 
 async function listAllUsers(admin: ReturnType<typeof createSupabaseAdminClient>) {
   const users: AdminAuthUser[] = [];
@@ -47,6 +43,9 @@ export async function GET() {
   const auth = await requireApiContext();
   if (!auth.ok) {
     return fail(auth.status, { code: auth.code, message: auth.message });
+  }
+  if (!canManageUsers(auth.context.role)) {
+    return fail(403, { code: "INSUFFICIENT_ROLE", message: "Only owners and admins can view users." });
   }
 
   try {

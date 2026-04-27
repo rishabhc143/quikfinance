@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatMoney } from "@/lib/utils/currency";
@@ -7,18 +8,20 @@ export function KPICard({
   value,
   change,
   tone,
+  href,
   kind = "money"
 }: {
   label: string;
   value: number;
   change: string;
   tone: "good" | "warn" | "neutral";
+  href?: string;
   kind?: "money" | "number";
 }) {
   const Icon = tone === "good" ? ArrowUpRight : tone === "warn" ? ArrowDownRight : Minus;
   const toneClass = tone === "good" ? "text-emerald-600" : tone === "warn" ? "text-amber-600" : "text-muted-foreground";
 
-  return (
+  const content = (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-sm text-muted-foreground">{label}</CardTitle>
@@ -31,5 +34,13 @@ export function KPICard({
         </div>
       </CardContent>
     </Card>
+  );
+
+  return href ? (
+    <Link href={href} className="transition hover:-translate-y-0.5 hover:shadow-soft">
+      {content}
+    </Link>
+  ) : (
+    content
   );
 }

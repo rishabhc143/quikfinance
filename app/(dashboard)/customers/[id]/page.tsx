@@ -1,6 +1,5 @@
-import { DetailPage } from "@/components/shared/DetailPage";
-import { getModuleConfig } from "@/lib/modules";
+import { ContactProfile } from "@/components/contacts/ContactProfile";
 
 export default function CustomerDetailPage({ params }: { params: { id: string } }) {
-  return <DetailPage config={getModuleConfig("customers")} id={params.id} />;
+  return <ContactProfile kind="customer" id={params.id} />;
 }

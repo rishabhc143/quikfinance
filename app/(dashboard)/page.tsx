@@ -56,6 +56,25 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       ) : null}
+      <Card>
+        <CardHeader>
+          <CardTitle>Action Prompts</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-3">
+          <Link href="/collections" className="rounded-lg border p-4 text-sm transition hover:bg-muted">
+            <div className="font-medium">Review collections</div>
+            <div className="mt-1 text-muted-foreground">Follow up on overdue receivables and share payment links.</div>
+          </Link>
+          <Link href="/payables" className="rounded-lg border p-4 text-sm transition hover:bg-muted">
+            <div className="font-medium">Clear payables</div>
+            <div className="mt-1 text-muted-foreground">Review upcoming vendor dues and record payouts.</div>
+          </Link>
+          <Link href="/reports/gst-summary" className="rounded-lg border p-4 text-sm transition hover:bg-muted">
+            <div className="font-medium">Validate GST</div>
+            <div className="mt-1 text-muted-foreground">Check GST output, input credit, and parity issues before filing.</div>
+          </Link>
+        </CardContent>
+      </Card>
       <CommandCenterPanel />
       <div className="grid gap-4 lg:grid-cols-3">
         <RevenueChart data={data.revenueExpense} />

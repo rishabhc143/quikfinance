@@ -2,7 +2,7 @@ import type { ApiContext } from "@/lib/api/auth";
 import { loadCompanySetupSnapshot, type SetupChecklistItem } from "@/lib/company-setup";
 
 export type DashboardData = {
-  kpis: { label: string; value: number; change: string; tone: "good" | "warn" | "neutral"; kind?: "money" | "number" }[];
+  kpis: { label: string; value: number; change: string; tone: "good" | "warn" | "neutral"; kind?: "money" | "number"; href?: string }[];
   revenueExpense: { month: string; revenue: number; expenses: number }[];
   cashFlow: { date: string; cash: number }[];
   aging: { name: string; value: number }[];
@@ -89,12 +89,12 @@ function feedDate(value: string) {
 
 export const fallbackDashboard: DashboardData = {
   kpis: [
-    { label: "Revenue MTD", value: 143800, change: "+18.4%", tone: "good" },
-    { label: "GST Payable", value: 24240, change: "Current month", tone: "warn" },
-    { label: "Outstanding Receivables", value: 24120, change: "9 invoices", tone: "warn" },
-    { label: "Outstanding Payables", value: 3280, change: "2 due this week", tone: "warn" },
-    { label: "Cash / Bank Balance", value: 102570, change: "+29.6k", tone: "good" },
-    { label: "Overdue Invoices", value: 3, change: "Needs follow-up", tone: "warn", kind: "number" }
+    { label: "Revenue MTD", value: 143800, change: "+18.4%", tone: "good", href: "/reports/profit-loss" },
+    { label: "GST Payable", value: 24240, change: "Current month", tone: "warn", href: "/reports/gst-summary" },
+    { label: "Outstanding Receivables", value: 24120, change: "9 invoices", tone: "warn", href: "/collections" },
+    { label: "Outstanding Payables", value: 3280, change: "2 due this week", tone: "warn", href: "/payables" },
+    { label: "Cash / Bank Balance", value: 102570, change: "+29.6k", tone: "good", href: "/bank-accounts" },
+    { label: "Overdue Invoices", value: 3, change: "Needs follow-up", tone: "warn", kind: "number", href: "/collections" }
   ],
   revenueExpense: [
     { month: "Nov", revenue: 83000, expenses: 51200 },
@@ -231,12 +231,12 @@ export async function buildDashboardData(context: ApiContext): Promise<Dashboard
 
   return {
     kpis: [
-      { label: "Revenue MTD", value: currentMonthRevenue, change: `${activeInvoices.filter((row) => sameMonth(row.issue_date, today)).length} invoices`, tone: currentMonthRevenue > 0 ? "good" : "neutral" },
-      { label: "GST Payable", value: gstOutput - gstInput, change: `Output ${gstOutput.toFixed(0)} / Input ${gstInput.toFixed(0)}`, tone: gstOutput - gstInput > 0 ? "warn" : "good" },
-      { label: "Outstanding Receivables", value: receivables, change: `${activeInvoices.filter((row) => Number(row.balance_due ?? 0) > 0).length} open`, tone: receivables > 0 ? "warn" : "good" },
-      { label: "Outstanding Payables", value: payables, change: `${activeBills.filter((row) => Number(row.balance_due ?? 0) > 0).length} open`, tone: payables > 0 ? "warn" : "good" },
-      { label: "Cash / Bank Balance", value: cashBalance, change: `${bankAccountRows.length} accounts`, tone: cashBalance >= 0 ? "good" : "warn" },
-      { label: "Overdue Invoices", value: overdueInvoices.length, change: "Requires follow-up", tone: overdueInvoices.length > 0 ? "warn" : "good", kind: "number" }
+      { label: "Revenue MTD", value: currentMonthRevenue, change: `${activeInvoices.filter((row) => sameMonth(row.issue_date, today)).length} invoices`, tone: currentMonthRevenue > 0 ? "good" : "neutral", href: "/reports/profit-loss" },
+      { label: "GST Payable", value: gstOutput - gstInput, change: `Output ${gstOutput.toFixed(0)} / Input ${gstInput.toFixed(0)}`, tone: gstOutput - gstInput > 0 ? "warn" : "good", href: "/reports/gst-summary" },
+      { label: "Outstanding Receivables", value: receivables, change: `${activeInvoices.filter((row) => Number(row.balance_due ?? 0) > 0).length} open`, tone: receivables > 0 ? "warn" : "good", href: "/collections" },
+      { label: "Outstanding Payables", value: payables, change: `${activeBills.filter((row) => Number(row.balance_due ?? 0) > 0).length} open`, tone: payables > 0 ? "warn" : "good", href: "/payables" },
+      { label: "Cash / Bank Balance", value: cashBalance, change: `${bankAccountRows.length} accounts`, tone: cashBalance >= 0 ? "good" : "warn", href: "/bank-accounts" },
+      { label: "Overdue Invoices", value: overdueInvoices.length, change: "Requires follow-up", tone: overdueInvoices.length > 0 ? "warn" : "good", kind: "number", href: "/collections" }
     ],
     revenueExpense,
     cashFlow,

@@ -35,8 +35,8 @@ export function ReportPage({ config }: { config: ReportConfig }) {
       <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 md:flex-row md:items-center md:justify-between">
         <DateRangePicker from={range.from} to={range.to} onChange={setRange} />
         <div className="flex gap-2">
-          <ReportExportButton label="PDF" />
-          <ReportExportButton label="CSV" />
+          <ReportExportButton label="PDF" mode="pdf" report={data} />
+          <ReportExportButton label="CSV" mode="csv" report={data} />
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-3">

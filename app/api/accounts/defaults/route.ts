@@ -1,4 +1,4 @@
-import { requireApiContext } from "@/lib/api/auth";
+import { canManageLocks, requireApiContext } from "@/lib/api/auth";
 import { fail, ok } from "@/lib/api/responses";
 
 export const dynamic = "force-dynamic";
@@ -7,6 +7,9 @@ export async function POST() {
   const auth = await requireApiContext();
   if (!auth.ok) {
     return fail(auth.status, { code: auth.code, message: auth.message });
+  }
+  if (!canManageLocks(auth.context.role)) {
+    return fail(403, { code: "INSUFFICIENT_ROLE", message: "Only owners, admins, and accountants can seed default accounts." });
   }
 
   const organization = await auth.context.supabase.from("organizations").select("base_currency").eq("id", auth.context.orgId).single();

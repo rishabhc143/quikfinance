@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import type { Json } from "@/types/database.types";
-import { requireApiContext, type ApiContext } from "@/lib/api/auth";
+import { canWriteData, requireApiContext, type ApiContext } from "@/lib/api/auth";
 import { errorMessage, fail, ok } from "@/lib/api/responses";
 import { assertPeriodUnlocked } from "@/lib/period-locks";
 
@@ -124,6 +124,9 @@ export function createCustomCrudHandlers(config: CustomCrudConfig) {
       if (!auth.ok) {
         return fail(auth.status, { code: auth.code, message: auth.message });
       }
+      if (!canWriteData(auth.context.role)) {
+        return fail(403, { code: "READ_ONLY_ROLE", message: "Your role has read-only access." });
+      }
 
       const json = await parseJson(request);
       const parsed = config.schema.safeParse(json);
@@ -171,6 +174,9 @@ export function createCustomCrudItemHandlers(config: CustomCrudConfig) {
       if (!auth.ok) {
         return fail(auth.status, { code: auth.code, message: auth.message });
       }
+      if (!canWriteData(auth.context.role)) {
+        return fail(403, { code: "READ_ONLY_ROLE", message: "Your role has read-only access." });
+      }
 
       const json = await parseJson(request);
       const partialSchema = config.schema instanceof z.ZodObject ? config.schema.partial() : config.schema;
@@ -207,6 +213,9 @@ export function createCustomCrudItemHandlers(config: CustomCrudConfig) {
       const auth = await requireApiContext();
       if (!auth.ok) {
         return fail(auth.status, { code: auth.code, message: auth.message });
+      }
+      if (!canWriteData(auth.context.role)) {
+        return fail(403, { code: "READ_ONLY_ROLE", message: "Your role has read-only access." });
       }
 
       const { data: existing, error: existingError } = await applyTenantFilter(fromTable(auth.context.supabase, config.table).select(config.lockDateField ?? "id"), auth.context)

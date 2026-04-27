@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { optionalGstinSchema, optionalPanSchema, optionalStateCodeSchema } from "@/lib/india";
-import { requireApiContext } from "@/lib/api/auth";
+import { canManageCompany, requireApiContext } from "@/lib/api/auth";
 import { fail, ok } from "@/lib/api/responses";
 import { loadCompanySetupSnapshot } from "@/lib/company-setup";
 
@@ -129,6 +129,9 @@ async function upsertCompany(request: NextRequest, partial = false) {
   const auth = await requireApiContext();
   if (!auth.ok) {
     return fail(auth.status, { code: auth.code, message: auth.message });
+  }
+  if (!canManageCompany(auth.context.role)) {
+    return fail(403, { code: "INSUFFICIENT_ROLE", message: "Only owners and admins can update company settings." });
   }
 
   const body = await request.json().catch(() => ({}));

@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { ExpenseEditor } from "@/components/transactions/ExpenseEditor";
 
 export default function NewExpensePage() {
-  return <FormPage config={getModuleConfig("expenses")} />;
+  return <ExpenseEditor />;
 }

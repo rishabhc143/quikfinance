@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { errorMessage, fail, ok } from "@/lib/api/responses";
-import { requireApiContext, type ApiContext } from "@/lib/api/auth";
+import { canWriteData, requireApiContext, type ApiContext } from "@/lib/api/auth";
 import { assertPeriodUnlocked } from "@/lib/period-locks";
 import type { Database, Json } from "@/types/database.types";
 
@@ -131,6 +131,9 @@ export function createCrudHandlers<T extends TableName>(config: CrudConfig<T>) {
       if (!auth.ok) {
         return fail(auth.status, { code: auth.code, message: auth.message });
       }
+      if (!canWriteData(auth.context.role)) {
+        return fail(403, { code: "READ_ONLY_ROLE", message: "Your role has read-only access." });
+      }
 
       const json = await parseJson(request);
       const parsed = config.schema.safeParse(json);
@@ -189,6 +192,9 @@ export function createCrudItemHandlers<T extends TableName>(config: CrudConfig<T
       if (!auth.ok) {
         return fail(auth.status, { code: auth.code, message: auth.message });
       }
+      if (!canWriteData(auth.context.role)) {
+        return fail(403, { code: "READ_ONLY_ROLE", message: "Your role has read-only access." });
+      }
 
       const json = await parseJson(request);
       const partialSchema = config.schema instanceof z.ZodObject ? config.schema.partial() : config.schema;
@@ -233,6 +239,9 @@ export function createCrudItemHandlers<T extends TableName>(config: CrudConfig<T
       const auth = await requireApiContext();
       if (!auth.ok) {
         return fail(auth.status, { code: auth.code, message: auth.message });
+      }
+      if (!canWriteData(auth.context.role)) {
+        return fail(403, { code: "READ_ONLY_ROLE", message: "Your role has read-only access." });
       }
 
       if (config.lockDateField && config.lockScope) {

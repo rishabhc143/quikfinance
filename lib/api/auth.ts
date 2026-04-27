@@ -12,6 +12,26 @@ export type AuthResult =
   | { ok: true; context: ApiContext }
   | { ok: false; status: number; code: string; message: string };
 
+export function hasRole(role: string, allowed: string[]) {
+  return allowed.includes(role);
+}
+
+export function canWriteData(role: string) {
+  return role !== "viewer";
+}
+
+export function canManageCompany(role: string) {
+  return hasRole(role, ["owner", "admin"]);
+}
+
+export function canManageUsers(role: string) {
+  return hasRole(role, ["owner", "admin"]);
+}
+
+export function canManageLocks(role: string) {
+  return hasRole(role, ["owner", "admin", "accountant"]);
+}
+
 export async function requireApiContext(): Promise<AuthResult> {
   const supabase = createSupabaseServerClient();
   const {
