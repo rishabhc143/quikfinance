@@ -1,6 +1,6 @@
-import { AccountingAuditWorkspace } from "@/components/workflows/AccountingAuditWorkspace";
+import { LedgersWorkspace } from "@/components/workflows/LedgersWorkspace";
 
 export default function Page() {
-  return <AccountingAuditWorkspace variant="ledgers" />;
+  return <LedgersWorkspace />;
 }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -194,6 +195,9 @@ export function ReconciliationWorkspace({ bankAccountId }: { bankAccountId: stri
               placeholder={"date,description,amount,reference\n2026-04-20,Northstar ACH,4000,ACH-4000"}
             />
             <Button onClick={submitImport}>Import statement</Button>
+            <div className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
+              Import raw bank lines first. Matching and period close should happen after the source rows are locked in.
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -216,6 +220,11 @@ export function ReconciliationWorkspace({ bankAccountId }: { bankAccountId: stri
             <Button variant="secondary" onClick={submitReconciliation}>
               Save reconciliation
             </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="secondary"><Link href="/payments/received">Receipts</Link></Button>
+              <Button asChild variant="secondary"><Link href="/payments/made">Payouts</Link></Button>
+              <Button asChild variant="secondary"><Link href="/exception-queue">Exceptions</Link></Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -231,7 +240,7 @@ export function ReconciliationWorkspace({ bankAccountId }: { bankAccountId: stri
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="font-semibold">{row.description}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">{row.statement_date} · {row.reference ?? "No reference"} · {formatMoney(row.statement_amount)}</div>
+                  <div className="mt-1 text-sm text-muted-foreground">{row.statement_date} - {row.reference ?? "No reference"} - {formatMoney(row.statement_amount)}</div>
                 </div>
                 <StatusBadge status={row.status} />
               </div>
@@ -239,8 +248,8 @@ export function ReconciliationWorkspace({ bankAccountId }: { bankAccountId: stri
                 {row.suggestions.map((suggestion) => (
                   <div key={suggestion.payment_id} className="flex flex-col gap-3 rounded-md border bg-muted/30 p-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="text-sm">
-                      <div className="font-medium">{suggestion.contact_name ?? "Payment candidate"} · {formatMoney(suggestion.amount)}</div>
-                      <div className="text-muted-foreground">{suggestion.payment_date} · {suggestion.method} · {suggestion.reference ?? "No reference"} · {suggestion.reason}</div>
+                      <div className="font-medium">{suggestion.contact_name ?? "Payment candidate"} - {formatMoney(suggestion.amount)}</div>
+                      <div className="text-muted-foreground">{suggestion.payment_date} - {suggestion.method} - {suggestion.reference ?? "No reference"} - {suggestion.reason}</div>
                     </div>
                     <Button
                       onClick={() =>
@@ -274,7 +283,7 @@ export function ReconciliationWorkspace({ bankAccountId }: { bankAccountId: stri
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="font-medium">{row.description}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">{row.statement_date} · {formatMoney(row.statement_amount)}</div>
+                    <div className="mt-1 text-sm text-muted-foreground">{row.statement_date} - {formatMoney(row.statement_amount)}</div>
                     {row.matched_payment ? (
                       <div className="mt-2 text-sm">
                         Matched to {row.matched_payment.contact_name ?? "payment"} on {row.matched_payment.payment_date} for {formatMoney(row.matched_payment.amount)}
@@ -316,7 +325,7 @@ export function ReconciliationWorkspace({ bankAccountId }: { bankAccountId: stri
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="font-medium">{row.description}</div>
-                    <div className="mt-1 text-sm text-muted-foreground">{row.statement_date} · {row.reference ?? "No reference"} · {formatMoney(row.statement_amount)}</div>
+                    <div className="mt-1 text-sm text-muted-foreground">{row.statement_date} - {row.reference ?? "No reference"} - {formatMoney(row.statement_amount)}</div>
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -360,4 +369,3 @@ export function ReconciliationWorkspace({ bankAccountId }: { bankAccountId: stri
     </div>
   );
 }
-

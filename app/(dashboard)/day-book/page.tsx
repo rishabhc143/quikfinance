@@ -1,6 +1,6 @@
-import { AccountingAuditWorkspace } from "@/components/workflows/AccountingAuditWorkspace";
+import { DayBookWorkspace } from "@/components/workflows/DayBookWorkspace";
 
 export default function Page() {
-  return <AccountingAuditWorkspace variant="day-book" />;
+  return <DayBookWorkspace />;
 }
 
