@@ -687,7 +687,9 @@ export async function buildBalanceSheetReport(context: ApiContext, from: string,
   const assetTypes = new Set(["cash", "bank", "accounts_receivable", "other_current_asset", "fixed_asset", "other_asset"]);
   const liabilityTypes = new Set(["accounts_payable", "other_current_liability", "long_term_liability"]);
   const equityTypes = new Set(["equity", "retained_earnings"]);
+  const pnlTypes = new Set(["revenue", "other_income", "expense", "other_expense", "cost_of_goods_sold"]);
   const rowsByAccount = new Map<string, { id: string; section: string; account: string; amount: number }>();
+  let currentEarnings = 0;
 
   for (const line of lines) {
     const account = accountsById.get(String(line.account_id));
@@ -695,7 +697,13 @@ export async function buildBalanceSheetReport(context: ApiContext, from: string,
     const isAsset = assetTypes.has(account.account_type);
     const isLiability = liabilityTypes.has(account.account_type);
     const isEquity = equityTypes.has(account.account_type);
-    if (!isAsset && !isLiability && !isEquity) continue;
+    const isProfitAndLoss = pnlTypes.has(account.account_type);
+    if (!isAsset && !isLiability && !isEquity && !isProfitAndLoss) continue;
+
+    if (isProfitAndLoss) {
+      currentEarnings += Number(line.credit ?? 0) - Number(line.debit ?? 0);
+      continue;
+    }
 
     const section = isAsset ? "Assets" : isLiability ? "Liabilities" : "Equity";
     const delta = isAsset ? Number(line.debit ?? 0) - Number(line.credit ?? 0) : Number(line.credit ?? 0) - Number(line.debit ?? 0);
@@ -712,6 +720,16 @@ export async function buildBalanceSheetReport(context: ApiContext, from: string,
   const rows = Array.from(rowsByAccount.values())
     .map((row) => ({ ...row, amount: Number(row.amount.toFixed(2)) }))
     .sort((a, b) => (a.section === b.section ? a.account.localeCompare(b.account) : a.section.localeCompare(b.section)));
+
+  const normalizedCurrentEarnings = Number(currentEarnings.toFixed(2));
+  if (Math.abs(normalizedCurrentEarnings) > 0.009) {
+    rows.push({
+      id: "equity-current-earnings",
+      section: "Equity",
+      account: "Current Earnings",
+      amount: normalizedCurrentEarnings
+    });
+  }
 
   const totalAssets = rows.filter((row) => row.section === "Assets").reduce((sum, row) => sum + row.amount, 0);
   const totalLiabilities = rows.filter((row) => row.section === "Liabilities").reduce((sum, row) => sum + row.amount, 0);

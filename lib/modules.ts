@@ -90,7 +90,8 @@ export const navigationGroups: NavigationGroup[] = [
       { title: "Dashboard", href: "/dashboard", icon: Activity },
       { title: "Global Search", href: "/search", icon: Search },
       { title: "Tasks / Exceptions", href: "/exception-queue", icon: ShieldCheck },
-      { title: "AI Copilot", href: "/finance-copilot", icon: Bot }
+      { title: "AI Copilot", href: "/finance-copilot", icon: Bot },
+      { title: "Demo Guide", href: "/help/demo-guide", icon: BookOpen }
     ]
   },
   {
