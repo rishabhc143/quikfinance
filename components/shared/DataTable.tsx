@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, Download, EyeOff } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CheckboxCell } from "@/components/shared/Selection";
@@ -39,7 +40,17 @@ function csvEscape(value: TableValue) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-export function DataTable({ columns, rows, title }: { columns: DataColumn[]; rows: TableRow[]; title: string }) {
+export function DataTable({
+  columns,
+  rows,
+  title,
+  getRowHref
+}: {
+  columns: DataColumn[];
+  rows: TableRow[];
+  title: string;
+  getRowHref?: (row: TableRow) => string | null;
+}) {
   const { t } = useI18n();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState(columns[0]?.key ?? "id");
@@ -159,7 +170,17 @@ export function DataTable({ columns, rows, title }: { columns: DataColumn[]; row
                 </td>
                 {visibleColumns.map((column) => (
                   <td key={column.key} className={cn("truncate px-4 py-3", column.align === "right" ? "text-right tabular-nums" : "text-left")}>
-                    {renderValue(row[column.key], column)}
+                    {(() => {
+                      const rowHref = getRowHref?.(row);
+                      if (rowHref && column.key === visibleColumns[0]?.key) {
+                        return (
+                          <Link href={rowHref} className="font-medium text-primary underline underline-offset-2">
+                            {renderValue(row[column.key], column)}
+                          </Link>
+                        );
+                      }
+                      return renderValue(row[column.key], column);
+                    })()}
                   </td>
                 ))}
               </tr>

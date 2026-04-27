@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -16,6 +17,127 @@ import type { FormField, ModuleConfig } from "@/lib/modules";
 import { addDaysISO, todayISO } from "@/lib/utils/dates";
 
 type FormValues = Record<string, string | number | boolean>;
+
+type ReferenceFieldConfig = {
+  apiPath: string;
+  detailBasePath?: string;
+  createPath?: string;
+  placeholder: string;
+  createLabel: string;
+  openLabel: string;
+};
+
+type ReferenceOption = {
+  value: string;
+  label: string;
+};
+
+function getReferenceFieldConfig(config: ModuleConfig, field: FormField): ReferenceFieldConfig | null {
+  const loweredLabel = field.label.toLowerCase();
+  const isCustomer = field.name === "customer_id" || loweredLabel.includes("customer");
+  const isVendor = field.name === "vendor_id" || loweredLabel.includes("vendor");
+
+  if (field.name === "contact_id") {
+    if (isCustomer || ["invoices", "quotations", "sales-orders", "credit-notes", "payments-received", "projects"].includes(config.key)) {
+      return {
+        apiPath: "/api/v1/customers",
+        detailBasePath: "/customers",
+        createPath: "/customers/new",
+        placeholder: "Select a customer",
+        createLabel: "New customer",
+        openLabel: "Open customer"
+      };
+    }
+
+    return {
+      apiPath: "/api/v1/vendors",
+      detailBasePath: "/vendors",
+      createPath: "/vendors/new",
+      placeholder: "Select a vendor",
+      createLabel: "New vendor",
+      openLabel: "Open vendor"
+    };
+  }
+
+  if (isCustomer) {
+    return {
+      apiPath: "/api/v1/customers",
+      detailBasePath: "/customers",
+      createPath: "/customers/new",
+      placeholder: "Select a customer",
+      createLabel: "New customer",
+      openLabel: "Open customer"
+    };
+  }
+
+  if (isVendor) {
+    return {
+      apiPath: "/api/v1/vendors",
+      detailBasePath: "/vendors",
+      createPath: "/vendors/new",
+      placeholder: "Select a vendor",
+      createLabel: "New vendor",
+      openLabel: "Open vendor"
+    };
+  }
+
+  if (field.name === "bank_account_id") {
+    return {
+      apiPath: "/api/v1/bank-accounts",
+      detailBasePath: "/bank-accounts",
+      createPath: "/bank-accounts/new",
+      placeholder: "Select a bank account",
+      createLabel: "New bank account",
+      openLabel: "Open bank account"
+    };
+  }
+
+  if (field.name === "account_id" || field.name === "payment_account_id" || field.name === "category_account_id") {
+    return {
+      apiPath: "/api/v1/accounts",
+      createPath: "/chart-of-accounts/new",
+      placeholder: "Select an account",
+      createLabel: "New account",
+      openLabel: "Open chart of accounts"
+    };
+  }
+
+  if (field.name === "project_id") {
+    return {
+      apiPath: "/api/v1/projects",
+      detailBasePath: "/projects",
+      createPath: "/projects/new",
+      placeholder: "Select a project",
+      createLabel: "New project",
+      openLabel: "Open project"
+    };
+  }
+
+  if (field.name === "tax_rate_id") {
+    return {
+      apiPath: "/api/v1/taxes",
+      createPath: "/settings/taxes/new",
+      placeholder: "Select a tax rate",
+      createLabel: "New tax rate",
+      openLabel: "Open taxes"
+    };
+  }
+
+  return null;
+}
+
+function optionLabel(entry: Record<string, unknown>) {
+  return String(
+    entry.display_name ??
+      entry.name ??
+      entry.company_name ??
+      entry.title ??
+      entry.code ??
+      entry.email ??
+      entry.id ??
+      ""
+  );
+}
 
 function schemaForField(field: FormField) {
   if (field.type === "number" || field.type === "money") {
@@ -77,6 +199,19 @@ export function RecordForm({ config }: { config: ModuleConfig }) {
   const [duplicateId, setDuplicateId] = useState<string | null>(null);
   const loadId = editId ?? duplicateId;
   const [loadingRecord, setLoadingRecord] = useState(false);
+  const [referenceOptions, setReferenceOptions] = useState<Record<string, ReferenceOption[]>>({});
+
+  const referenceFields = useMemo(
+    () =>
+      config.formFields.reduce<Record<string, ReferenceFieldConfig>>((result, field) => {
+        const reference = getReferenceFieldConfig(config, field);
+        if (reference) {
+          result[field.name] = reference;
+        }
+        return result;
+      }, {}),
+    [config]
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -99,6 +234,44 @@ export function RecordForm({ config }: { config: ModuleConfig }) {
       return values;
     }, {})
   });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const entries = Object.entries(referenceFields);
+
+    if (!entries.length) {
+      setReferenceOptions({});
+      return () => controller.abort();
+    }
+
+    const loadReferenceOptions = async () => {
+      const loaded = await Promise.all(
+        entries.map(async ([fieldName, reference]) => {
+          const response = await fetch(reference.apiPath, { signal: controller.signal });
+          if (!response.ok) {
+            return [fieldName, []] as const;
+          }
+
+          const payload = (await response.json()) as { data?: unknown };
+          const rows = Array.isArray(payload.data) ? payload.data : [];
+          const options = rows
+            .filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null && !Array.isArray(row))
+            .map((row) => ({
+              value: String(row.id ?? ""),
+              label: optionLabel(row)
+            }))
+            .filter((option) => option.value && option.label);
+
+          return [fieldName, options] as const;
+        })
+      );
+
+      setReferenceOptions(Object.fromEntries(loaded));
+    };
+
+    loadReferenceOptions().catch(() => setReferenceOptions({}));
+    return () => controller.abort();
+  }, [referenceFields]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -167,7 +340,20 @@ export function RecordForm({ config }: { config: ModuleConfig }) {
         <div key={field.name} className={field.type === "textarea" ? "md:col-span-2" : ""}>
           <Label htmlFor={field.name}>{field.label}</Label>
           <div className="mt-2">
-            {field.type === "textarea" ? (
+            {referenceFields[field.name] ? (
+              <select
+                id={field.name}
+                {...form.register(field.name)}
+                className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">{referenceFields[field.name].placeholder}</option>
+                {(referenceOptions[field.name] ?? []).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            ) : field.type === "textarea" ? (
               <Textarea id={field.name} {...form.register(field.name)} />
             ) : field.type === "select" ? (
               <select id={field.name} {...form.register(field.name)} className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring">
@@ -187,6 +373,23 @@ export function RecordForm({ config }: { config: ModuleConfig }) {
               <Input id={field.name} type={field.type} {...form.register(field.name)} />
             )}
           </div>
+          {referenceFields[field.name] ? (
+            <div className="mt-2 flex flex-wrap gap-3 text-xs">
+              {referenceFields[field.name].createPath ? (
+                <Link href={referenceFields[field.name].createPath ?? "#"} className="text-primary underline underline-offset-2">
+                  {referenceFields[field.name].createLabel}
+                </Link>
+              ) : null}
+              {referenceFields[field.name].detailBasePath && form.watch(field.name) ? (
+                <Link
+                  href={`${referenceFields[field.name].detailBasePath}/${String(form.watch(field.name))}`}
+                  className="text-muted-foreground underline underline-offset-2"
+                >
+                  {referenceFields[field.name].openLabel}
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
           {form.formState.errors[field.name]?.message ? (
             <p className="mt-1 text-xs text-destructive">{String(form.formState.errors[field.name]?.message)}</p>
           ) : null}

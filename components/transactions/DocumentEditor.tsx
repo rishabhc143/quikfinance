@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -244,6 +245,16 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
               <option value="">Select</option>
               {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.display_name}</option>)}
             </select>
+            <div className="mt-2 flex flex-wrap gap-3 text-xs">
+              <Link href={isInvoice ? "/customers/new" : "/vendors/new"} className="text-primary underline underline-offset-2">
+                {isInvoice ? "New customer" : "New vendor"}
+              </Link>
+              {contactId ? (
+                <Link href={`${isInvoice ? "/customers" : "/vendors"}/${contactId}`} className="text-muted-foreground underline underline-offset-2">
+                  {isInvoice ? "Open customer" : "Open vendor"}
+                </Link>
+              ) : null}
+            </div>
           </div>
           <div>
             <Label>{isInvoice ? "Invoice number" : "Bill number"}</Label>

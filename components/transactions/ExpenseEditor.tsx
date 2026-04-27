@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -150,6 +151,16 @@ export function ExpenseEditor() {
                 </option>
               ))}
             </select>
+            <div className="mt-2 flex flex-wrap gap-3 text-xs">
+              <Link href="/vendors/new" className="text-primary underline underline-offset-2">
+                New vendor
+              </Link>
+              {vendorId ? (
+                <Link href={`/vendors/${vendorId}`} className="text-muted-foreground underline underline-offset-2">
+                  Open vendor
+                </Link>
+              ) : null}
+            </div>
           </div>
           <div>
             <Label>Expense account</Label>
