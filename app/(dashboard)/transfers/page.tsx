@@ -1,6 +1,11 @@
-import { WorkflowPage } from "@/components/shared/WorkflowPage";
-import { getWorkflowPage } from "@/lib/workflow-pages";
+import { PageHeader } from "@/components/shared/PageHeader";
+import { TransfersWorkspace } from "@/components/workflows/TransfersWorkspace";
 
 export default function TransfersPage() {
-  return <WorkflowPage config={getWorkflowPage("transfers")} />;
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Transfers" description="Review treasury account positions and internal transfer controls without relying on a generic workflow shell." />
+      <TransfersWorkspace />
+    </div>
+  );
 }
