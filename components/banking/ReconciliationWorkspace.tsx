@@ -221,6 +221,8 @@ export function ReconciliationWorkspace({ bankAccountId }: { bankAccountId: stri
               Save reconciliation
             </Button>
             <div className="flex flex-wrap gap-2">
+              <Button asChild variant="secondary"><Link href={`/bank-accounts/${bankAccountId}`}>Account history</Link></Button>
+              <Button asChild variant="secondary"><Link href={`/bank-accounts/new?edit=${bankAccountId}`}>Edit account</Link></Button>
               <Button asChild variant="secondary"><Link href="/payments/received">Receipts</Link></Button>
               <Button asChild variant="secondary"><Link href="/payments/made">Payouts</Link></Button>
               <Button asChild variant="secondary"><Link href="/exception-queue">Exceptions</Link></Button>

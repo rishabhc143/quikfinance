@@ -17,7 +17,9 @@ type ItemOption = { id: string; name: string; sales_price?: number; purchase_pri
 type TaxOption = { id: string; name: string; rate: number };
 type TemplateSettings = {
   default_invoice_template?: "classic" | "modern" | "minimal";
+  default_quotation_template?: "classic" | "modern" | "minimal";
   invoice_note_template?: string;
+  quotation_note_template?: string;
 };
 
 type LineItem = {
@@ -30,6 +32,8 @@ type LineItem = {
   gst_rate: number;
 };
 
+type DocumentKind = "invoice" | "bill" | "quotation";
+
 function emptyLine(): LineItem {
   return { item_id: null, description: "", quantity: 1, rate: 0, discount: 0, tax_rate_id: null, gst_rate: 0 };
 }
@@ -38,15 +42,24 @@ function toMoney(value: number) {
   return Number(value.toFixed(2));
 }
 
-export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
+function kindLabel(kind: DocumentKind) {
+  if (kind === "invoice") return "Invoice";
+  if (kind === "bill") return "Bill";
+  return "Quotation";
+}
+
+export function DocumentEditor({ kind }: { kind: DocumentKind }) {
   const router = useRouter();
   const [editId, setEditId] = useState<string | null>(null);
   const [duplicateId, setDuplicateId] = useState<string | null>(null);
   const loadId = editId ?? duplicateId;
   const isInvoice = kind === "invoice";
-  const apiBase = isInvoice ? "/api/v1/invoices" : "/api/v1/bills";
-  const contactsApi = isInvoice ? "/api/v1/customers" : "/api/v1/vendors";
-  const listPath = isInvoice ? "/invoices" : "/bills";
+  const isBill = kind === "bill";
+  const isQuotation = kind === "quotation";
+  const label = kindLabel(kind);
+  const apiBase = isInvoice ? "/api/v1/invoices" : isBill ? "/api/v1/bills" : "/api/v1/quotations";
+  const contactsApi = isBill ? "/api/v1/vendors" : "/api/v1/customers";
+  const listPath = isInvoice ? "/invoices" : isBill ? "/bills" : "/quotations";
 
   const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [items, setItems] = useState<ItemOption[]>([]);
@@ -76,6 +89,7 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
 
   useEffect(() => {
     const controller = new AbortController();
+
     const boot = async () => {
       setLoading(true);
       try {
@@ -83,7 +97,7 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
           fetch(contactsApi, { signal: controller.signal }),
           fetch("/api/v1/inventory", { signal: controller.signal }),
           fetch("/api/v1/taxes", { signal: controller.signal }),
-          isInvoice ? fetch("/api/v1/templates/settings", { signal: controller.signal }) : Promise.resolve(new Response(JSON.stringify({ data: {} })))
+          isBill ? Promise.resolve(new Response(JSON.stringify({ data: {} }))) : fetch("/api/v1/templates/settings", { signal: controller.signal })
         ]);
 
         const [contactJson, itemJson, taxJson, templateJson] = await Promise.all([
@@ -96,12 +110,14 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
         setContacts(Array.isArray(contactJson.data) ? contactJson.data : []);
         setItems(Array.isArray(itemJson.data) ? itemJson.data : []);
         setTaxes(Array.isArray(taxJson.data) ? taxJson.data : []);
-        const templateSettings = (templateJson.data ?? {}) as TemplateSettings;
 
-        if (!loadId && isInvoice) {
-          setTemplateType(templateSettings.default_invoice_template ?? "classic");
-          if (typeof templateSettings.invoice_note_template === "string" && templateSettings.invoice_note_template.trim()) {
-            setTerms(templateSettings.invoice_note_template);
+        const templateSettings = (templateJson.data ?? {}) as TemplateSettings;
+        if (!loadId && !isBill) {
+          const defaultTemplate = isInvoice ? templateSettings.default_invoice_template : templateSettings.default_quotation_template;
+          const defaultTerms = isInvoice ? templateSettings.invoice_note_template : templateSettings.quotation_note_template;
+          setTemplateType(defaultTemplate ?? "classic");
+          if (typeof defaultTerms === "string" && defaultTerms.trim()) {
+            setTerms(defaultTerms);
           }
         }
 
@@ -118,8 +134,20 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
           setPlaceOfSupply(String(record.place_of_supply ?? ""));
           setNotes(String(record.notes ?? ""));
           setTerms(String(record.terms ?? ""));
-          setTemplateType((String(record.template_type ?? (templateSettings.default_invoice_template ?? "classic")) as "classic" | "modern" | "minimal"));
-          setDocumentNumber(duplicateId ? "" : String(isInvoice ? record.invoice_number ?? "" : record.bill_number ?? ""));
+          setTemplateType(
+            String(
+              record.template_type ??
+                (isInvoice ? templateSettings.default_invoice_template : templateSettings.default_quotation_template) ??
+                "classic"
+            ) as "classic" | "modern" | "minimal"
+          );
+          setDocumentNumber(
+            duplicateId
+              ? ""
+              : String(
+                  isInvoice ? record.invoice_number ?? "" : isBill ? record.bill_number ?? "" : record.quotation_number ?? ""
+                )
+          );
           setRoundOff(Number(record.round_off ?? 0));
           setTdsAmount(Number(record.tds_amount ?? 0));
           const nextLines = Array.isArray(record.line_items) && record.line_items.length
@@ -144,7 +172,7 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
 
     void boot();
     return () => controller.abort();
-  }, [apiBase, contactsApi, duplicateId, isInvoice, loadId]);
+  }, [apiBase, contactsApi, duplicateId, isBill, isInvoice, loadId]);
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce((sum, line) => sum + line.quantity * line.rate, 0);
@@ -171,7 +199,7 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
     updateLine(index, {
       item_id: itemId || null,
       description: item?.name ?? "",
-      rate: Number(isInvoice ? item?.sales_price ?? 0 : item?.purchase_price ?? 0),
+      rate: Number(isBill ? item?.purchase_price ?? 0 : item?.sales_price ?? 0),
       gst_rate: Number(item?.gst_rate ?? 0),
       tax_rate_id: tax?.id ?? null
     });
@@ -179,9 +207,10 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
 
   const submit = async () => {
     if (!contactId) {
-      toast.error(`Select a ${isInvoice ? "customer" : "vendor"}.`);
+      toast.error(`Select a ${isBill ? "vendor" : "customer"}.`);
       return;
     }
+
     const validLines = lines.filter((line) => line.description.trim().length > 0 && line.quantity > 0);
     if (!validLines.length) {
       toast.error("Add at least one line item.");
@@ -201,7 +230,6 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
         discount_total: totals.discount_total,
         tax_total: totals.tax_total,
         total: totals.total,
-        balance_due: totals.balance_due,
         place_of_supply: placeOfSupply || null,
         notes: notes || null,
         line_items: validLines.map((line) => ({
@@ -220,9 +248,15 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
         payload.round_off = roundOff;
         payload.terms = terms || null;
         payload.template_type = templateType;
-      } else {
+        payload.balance_due = totals.balance_due;
+      } else if (isBill) {
         payload.bill_number = documentNumber || undefined;
         payload.tds_amount = tdsAmount;
+        payload.balance_due = totals.balance_due;
+      } else {
+        payload.quotation_number = documentNumber || undefined;
+        payload.terms = terms || null;
+        payload.template_type = templateType;
       }
 
       const response = await fetch(editId ? `${apiBase}/${editId}` : apiBase, {
@@ -234,8 +268,9 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
       if (!response.ok) {
         throw new Error(json.error?.message ?? "Document could not be saved.");
       }
+
       const id = json.data?.id;
-      toast.success(`${isInvoice ? "Invoice" : "Bill"} saved.`);
+      toast.success(`${label} saved.`);
       router.push(id ? `${listPath}/${id}` : listPath);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Document could not be saved.");
@@ -245,49 +280,54 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
   };
 
   if (loading) {
-    return <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">Loading {isInvoice ? "invoice" : "bill"} editor...</div>;
+    return <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">Loading {label.toLowerCase()} editor...</div>;
   }
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>{editId ? `Edit ${isInvoice ? "Invoice" : "Bill"}` : `New ${isInvoice ? "Invoice" : "Bill"}`}</CardTitle>
+          <CardTitle>{editId ? `Edit ${label}` : `New ${label}`}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label>{isInvoice ? "Customer" : "Vendor"}</Label>
+            <Label>{isBill ? "Vendor" : "Customer"}</Label>
             <select value={contactId} onChange={(event) => setContactId(event.target.value)} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
               <option value="">Select</option>
               {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.display_name}</option>)}
             </select>
             <div className="mt-2 flex flex-wrap gap-3 text-xs">
-              <Link href={isInvoice ? "/customers/new" : "/vendors/new"} className="text-primary underline underline-offset-2">
-                {isInvoice ? "New customer" : "New vendor"}
+              <Link href={isBill ? "/vendors/new" : "/customers/new"} className="text-primary underline underline-offset-2">
+                {isBill ? "New vendor" : "New customer"}
               </Link>
               {contactId ? (
-                <Link href={`${isInvoice ? "/customers" : "/vendors"}/${contactId}`} className="text-muted-foreground underline underline-offset-2">
-                  {isInvoice ? "Open customer" : "Open vendor"}
+                <Link href={`${isBill ? "/vendors" : "/customers"}/${contactId}`} className="text-muted-foreground underline underline-offset-2">
+                  {isBill ? "Open vendor" : "Open customer"}
                 </Link>
               ) : null}
             </div>
           </div>
           <div>
-            <Label>{isInvoice ? "Invoice number" : "Bill number"}</Label>
+            <Label>{isInvoice ? "Invoice number" : isBill ? "Bill number" : "Quotation number"}</Label>
             <Input value={documentNumber} onChange={(event) => setDocumentNumber(event.target.value)} className="mt-2" />
           </div>
           <div>
-            <Label>Issue date</Label>
+            <Label>{isQuotation ? "Quotation date" : "Issue date"}</Label>
             <Input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} className="mt-2" />
           </div>
           <div>
-            <Label>Due date</Label>
+            <Label>{isQuotation ? "Expiry date" : "Due date"}</Label>
             <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-2" />
           </div>
           <div>
             <Label>Status</Label>
             <select value={status} onChange={(event) => setStatus(event.target.value)} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
-              {(isInvoice ? ["draft", "sent"] : ["draft", "approved"]).map((option) => <option key={option} value={option}>{option}</option>)}
+              {(isInvoice
+                ? ["draft", "sent"]
+                : isBill
+                  ? ["draft", "approved"]
+                  : ["draft", "sent", "accepted"]
+              ).map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
           </div>
           <div>
@@ -301,9 +341,9 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
             <Label>Place of supply</Label>
             <Input value={placeOfSupply} onChange={(event) => setPlaceOfSupply(event.target.value)} className="mt-2" placeholder="27" />
           </div>
-          {isInvoice ? (
+          {!isBill ? (
             <div>
-              <Label>Terms</Label>
+              <Label>{isQuotation ? "Proposal terms" : "Terms"}</Label>
               <Input value={terms} onChange={(event) => setTerms(event.target.value)} className="mt-2" />
             </div>
           ) : (
@@ -312,7 +352,7 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
               <Input type="number" step="0.01" value={tdsAmount} onChange={(event) => setTdsAmount(Number(event.target.value || 0))} className="mt-2" />
             </div>
           )}
-          {isInvoice ? (
+          {!isBill ? (
             <div>
               <Label>Template</Label>
               <select value={templateType} onChange={(event) => setTemplateType(event.target.value as "classic" | "modern" | "minimal")} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
@@ -402,7 +442,7 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="secondary" onClick={() => router.push(listPath)}>Cancel</Button>
-        <Button type="button" onClick={submit} disabled={saving}>{saving ? "Saving..." : `Save ${isInvoice ? "invoice" : "bill"}`}</Button>
+        <Button type="button" onClick={submit} disabled={saving}>{saving ? "Saving..." : `Save ${label.toLowerCase()}`}</Button>
       </div>
     </div>
   );

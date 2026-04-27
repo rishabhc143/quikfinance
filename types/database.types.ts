@@ -230,6 +230,10 @@ export type CommercialDocumentRow = TenantRow & {
 
 export type QuotationRow = CommercialDocumentRow & {
   quotation_number: string;
+  discount_total: number;
+  place_of_supply: string | null;
+  template_type: string;
+  terms: string | null;
 };
 
 export type SalesOrderRow = CommercialDocumentRow & {

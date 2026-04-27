@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { currencyCodeSchema, idSchema, moneySchema } from "@/lib/validations/common.schema";
+import { lineItemSchema } from "@/lib/validations/invoice.schema";
 
 const statusLabelSchema = z.string().trim().min(2).max(80);
 
@@ -16,7 +17,15 @@ const baseCommercialSchema = z.object({
 
 export const quotationSchema = baseCommercialSchema.extend({
   quotation_number: z.string().trim().min(2).max(40).optional(),
-  status: statusLabelSchema.default("draft")
+  status: z.enum(["draft", "sent", "accepted", "expired"]).default("draft"),
+  discount_total: moneySchema.default(0),
+  place_of_supply: z.string().trim().max(2).optional().nullable(),
+  template_type: z.enum(["classic", "modern", "minimal"]).default("classic"),
+  terms: z.string().max(1000).optional().nullable(),
+  line_items: z.array(lineItemSchema).min(1).optional()
+}).refine((value) => !value.due_date || value.due_date >= value.issue_date, {
+  message: "Expiry date must be on or after quotation date.",
+  path: ["due_date"]
 });
 
 export const salesOrderSchema = baseCommercialSchema.extend({

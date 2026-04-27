@@ -25,6 +25,9 @@ type TransferSnapshot = {
   memo: string | null;
   status: string;
   journal_entry_id: string | null;
+  reversal_journal_entry_id?: string | null;
+  reversal_date?: string | null;
+  reversed_at?: string | null;
   created_at?: string;
 };
 
@@ -71,6 +74,9 @@ function normalizeSnapshot(record: { entity_id: string | null; created_at: strin
     memo: typeof payload.memo === "string" ? payload.memo : null,
     status: String(payload.status ?? "draft"),
     journal_entry_id: typeof payload.journal_entry_id === "string" ? payload.journal_entry_id : null,
+    reversal_journal_entry_id: typeof payload.reversal_journal_entry_id === "string" ? payload.reversal_journal_entry_id : null,
+    reversal_date: typeof payload.reversal_date === "string" ? payload.reversal_date : null,
+    reversed_at: typeof payload.reversed_at === "string" ? payload.reversed_at : null,
     created_at: record.created_at
   };
 }
@@ -105,7 +111,7 @@ export async function GET(request: Request) {
   }
 
   let rows = [...latestByEntity.values()];
-  if (status && ["draft", "posted", "cancelled"].includes(status)) {
+  if (status && ["draft", "posted", "cancelled", "reversed"].includes(status)) {
     rows = rows.filter((row) => row.status === status);
   }
   if (search) {

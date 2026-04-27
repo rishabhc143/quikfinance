@@ -1,10 +1,13 @@
 import { z } from "zod";
 import { canWriteData, requireApiContext, type ApiContext } from "@/lib/api/auth";
+import { reverseInternalTransferTransaction } from "@/lib/accounting/transactions";
 import { fail, ok } from "@/lib/api/responses";
+import { assertPeriodUnlocked } from "@/lib/period-locks";
 import type { Json } from "@/types/database.types";
 
-const statusSchema = z.object({
-  status: z.enum(["draft", "posted", "cancelled", "reversed"])
+const reverseSchema = z.object({
+  reversal_date: z.string().min(8).optional(),
+  memo: z.string().trim().max(1000).optional().nullable()
 });
 
 type TransferSnapshot = {
@@ -21,17 +24,6 @@ type TransferSnapshot = {
   reversal_date?: string | null;
   reversed_at?: string | null;
 };
-
-async function audit(context: ApiContext, action: string, entityId: string, values: Json) {
-  await context.supabase.from("audit_logs").insert({
-    org_id: context.orgId,
-    user_id: context.userId,
-    entity_type: "internal_transfer",
-    entity_id: entityId,
-    action,
-    new_values: values
-  });
-}
 
 function normalizeSnapshot(record: { entity_id: string | null; new_values: Json }): TransferSnapshot | null {
   const payload = typeof record.new_values === "object" && record.new_values !== null && !Array.isArray(record.new_values)
@@ -54,34 +46,20 @@ function normalizeSnapshot(record: { entity_id: string | null; new_values: Json 
   };
 }
 
-export const dynamic = "force-dynamic";
-
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
-  const auth = await requireApiContext();
-  if (!auth.ok) return fail(auth.status, { code: auth.code, message: auth.message });
-
-  const { data, error } = await auth.context.supabase
-    .from("audit_logs")
-    .select("entity_id, new_values, created_at")
-    .eq("org_id", auth.context.orgId)
-    .eq("entity_type", "internal_transfer")
-    .eq("entity_id", params.id)
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  if (error || !(data ?? []).length) {
-    return fail(404, { code: "NOT_FOUND", message: error?.message ?? "Transfer was not found." });
-  }
-
-  const snapshot = normalizeSnapshot(data![0]);
-  if (!snapshot) {
-    return fail(404, { code: "NOT_FOUND", message: "Transfer was not found." });
-  }
-
-  return ok(snapshot);
+async function audit(context: ApiContext, action: string, entityId: string, values: Json) {
+  await context.supabase.from("audit_logs").insert({
+    org_id: context.orgId,
+    user_id: context.userId,
+    entity_type: "internal_transfer",
+    entity_id: entityId,
+    action,
+    new_values: values
+  });
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export const dynamic = "force-dynamic";
+
+export async function POST(request: Request, { params }: { params: { id: string } }) {
   const auth = await requireApiContext();
   if (!auth.ok) return fail(auth.status, { code: auth.code, message: auth.message });
   if (!canWriteData(auth.context.role)) {
@@ -89,9 +67,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   }
 
   const json = await request.json().catch(() => ({}));
-  const parsed = statusSchema.safeParse(json);
+  const parsed = reverseSchema.safeParse(json);
   if (!parsed.success) {
-    return fail(422, { code: "VALIDATION_FAILED", message: "Transfer update is invalid.", details: parsed.error.flatten() });
+    return fail(422, { code: "VALIDATION_FAILED", message: "Transfer reversal is invalid.", details: parsed.error.flatten() });
   }
 
   const current = await auth.context.supabase
@@ -107,14 +85,34 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (!snapshot) {
     return fail(404, { code: "NOT_FOUND", message: "Transfer was not found." });
   }
-  if (parsed.data.status === "reversed") {
-    return fail(409, { code: "USE_REVERSAL_ENDPOINT", message: "Use the transfer reversal action for posted transfers." });
-  }
-  if (snapshot.status === "posted" && parsed.data.status === "cancelled") {
-    return fail(409, { code: "POSTED_TRANSFER_IMMUTABLE", message: "Posted transfers cannot be cancelled without a reversal entry." });
+  if (snapshot.status !== "posted") {
+    return fail(409, { code: "REVERSAL_NOT_ALLOWED", message: "Only posted transfers can be reversed." });
   }
 
-  const nextSnapshot = { ...snapshot, status: parsed.data.status };
-  await audit(auth.context, "update", params.id, nextSnapshot as unknown as Json);
-  return ok(nextSnapshot);
+  const reversalDate = parsed.data.reversal_date ?? new Date().toISOString().slice(0, 10);
+  const lockResponse = await assertPeriodUnlocked(auth.context, reversalDate, "banking");
+  if (lockResponse) return lockResponse;
+
+  try {
+    const reversal = await reverseInternalTransferTransaction(auth.context, {
+      transfer_id: params.id,
+      source_bank_account_id: snapshot.source_bank_account_id,
+      destination_bank_account_id: snapshot.destination_bank_account_id,
+      transfer_date: snapshot.transfer_date,
+      amount: snapshot.amount,
+      reference: snapshot.reference,
+      memo: parsed.data.memo ?? snapshot.memo,
+      reversal_date: reversalDate
+    });
+
+    const nextSnapshot = {
+      ...snapshot,
+      ...reversal
+    };
+
+    await audit(auth.context, "reverse", params.id, nextSnapshot as unknown as Json);
+    return ok(nextSnapshot);
+  } catch (error) {
+    return fail(400, { code: "REVERSAL_FAILED", message: error instanceof Error ? error.message : "Transfer reversal failed." });
+  }
 }

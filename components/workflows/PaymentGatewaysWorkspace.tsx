@@ -65,6 +65,7 @@ export function PaymentGatewaysWorkspace() {
             <Button variant="secondary" asChild><Link href="/integrations">Open integrations</Link></Button>
             <Button variant="secondary" asChild><Link href="/payment-operations">Payment operations</Link></Button>
             <Button variant="secondary" asChild><Link href="/settlements">Settlements</Link></Button>
+            <Button variant="secondary" asChild><Link href="/bank-accounts">Bank history</Link></Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">

@@ -33,6 +33,9 @@ type TransferRow = {
   memo: string | null;
   status: string;
   journal_entry_id: string | null;
+  reversal_journal_entry_id?: string | null;
+  reversal_date?: string | null;
+  reversed_at?: string | null;
 };
 
 export function TransfersWorkspace() {
@@ -119,6 +122,27 @@ export function TransfersWorkspace() {
     onError: (error) => toast.error(error instanceof Error ? error.message : "Transfer could not be cancelled.")
   });
 
+  const reverseTransfer = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/v1/transfers/${id}/reverse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reversal_date: todayISO() })
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: { message?: string } };
+      if (!response.ok) {
+        throw new Error(payload.error?.message ?? "Transfer could not be reversed.");
+      }
+    },
+    onSuccess: async () => {
+      toast.success("Transfer reversed.");
+      await queryClient.invalidateQueries({ queryKey: ["internal-transfers"] });
+      await queryClient.invalidateQueries({ queryKey: ["transfer-bank-accounts"] });
+      await queryClient.invalidateQueries({ queryKey: ["module", "bank-accounts"] });
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Transfer could not be reversed.")
+  });
+
   const rows = useMemo(() => bankAccounts.data ?? [], [bankAccounts.data]);
   const transferRows = useMemo(() => transfers.data ?? [], [transfers.data]);
   const metrics = useMemo(() => ({
@@ -185,7 +209,8 @@ export function TransfersWorkspace() {
                 {createTransfer.isPending ? "Saving..." : "Save transfer"}
               </Button>
               <Button asChild variant="secondary"><Link href="/bank-accounts">Bank accounts</Link></Button>
-              <Button asChild variant="secondary"><Link href="/bank-accounts">Reconciliation</Link></Button>
+              <Button asChild variant="secondary"><Link href={sourceBankAccountId ? `/bank-accounts/${sourceBankAccountId}` : "/bank-accounts"}>Source history</Link></Button>
+              <Button asChild variant="secondary"><Link href={destinationBankAccountId ? `/bank-accounts/${destinationBankAccountId}` : "/bank-accounts"}>Destination history</Link></Button>
             </div>
           </CardContent>
         </Card>
@@ -221,13 +246,23 @@ export function TransfersWorkspace() {
                   <div className="text-sm text-muted-foreground">{transfer.transfer_date} - {transfer.source_bank_name ?? "Source"} to {transfer.destination_bank_name ?? "Destination"}</div>
                   <div className="text-sm">{transfer.memo ?? "No memo provided."}</div>
                   {transfer.journal_entry_id ? <div className="text-xs text-muted-foreground">Journal: {transfer.journal_entry_id}</div> : null}
+                  {transfer.reversal_journal_entry_id ? <div className="text-xs text-muted-foreground">Reversal journal: {transfer.reversal_journal_entry_id}</div> : null}
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <div className="font-medium">{formatMoney(transfer.amount)}</div>
                   <StatusBadge status={transfer.status} />
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button asChild variant="ghost"><Link href={`/bank-accounts/${transfer.source_bank_account_id}`}>Source</Link></Button>
+                    <Button asChild variant="ghost"><Link href={`/bank-accounts/${transfer.destination_bank_account_id}`}>Destination</Link></Button>
+                  </div>
                   {transfer.status === "draft" ? (
                     <Button variant="secondary" onClick={() => cancelTransfer.mutate(transfer.id)} disabled={cancelTransfer.isPending}>
                       {cancelTransfer.isPending ? "Saving..." : "Cancel draft"}
+                    </Button>
+                  ) : null}
+                  {transfer.status === "posted" ? (
+                    <Button variant="secondary" onClick={() => reverseTransfer.mutate(transfer.id)} disabled={reverseTransfer.isPending}>
+                      {reverseTransfer.isPending ? "Reversing..." : "Reverse transfer"}
                     </Button>
                   ) : null}
                 </div>

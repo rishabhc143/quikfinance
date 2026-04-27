@@ -320,13 +320,13 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     primaryAction: "New quotation",
     columns: [
       { key: "quotation_number", label: "Quotation" },
-      { key: "contact_id", label: "Customer" },
+      { key: "customer", label: "Customer" },
       { key: "issue_date", label: "Date", kind: "date" },
       { key: "due_date", label: "Expiry", kind: "date" },
       { key: "total", label: "Total", kind: "money", align: "right" },
       { key: "status", label: "Status", kind: "status" }
     ],
-    rows: [{ id: "qt-1", quotation_number: "QT-0001", contact_id: "cust-1", issue_date: today, due_date: dueSoon, total: money(48000), status: "sent" }],
+    rows: [{ id: "qt-1", quotation_number: "QT-0001", customer: "Northstar Labs", issue_date: today, due_date: dueSoon, total: money(48000), status: "sent" }],
     formFields: [
       { name: "contact_id", label: "Customer ID", type: "text", required: true },
       { name: "issue_date", label: "Quotation date", type: "date", required: true },

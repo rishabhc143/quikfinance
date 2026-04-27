@@ -73,6 +73,7 @@ export function SettlementsWorkspace() {
             <Button asChild variant="secondary"><Link href="/payment-gateways">Gateway health</Link></Button>
             <Button asChild variant="secondary"><Link href="/payment-operations">Payment operations</Link></Button>
             <Button asChild variant="secondary"><Link href="/bank-accounts">Bank accounts</Link></Button>
+            <Button asChild variant="secondary"><Link href="/bank-accounts">Open bank history</Link></Button>
           </div>
         </CardHeader>
       </Card>

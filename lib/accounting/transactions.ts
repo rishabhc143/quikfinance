@@ -864,6 +864,77 @@ export async function createInternalTransferTransaction(context: ApiContext, inp
   return { ...transfer, journal_entry_id: journalEntryId };
 }
 
+export async function reverseInternalTransferTransaction(context: ApiContext, input: {
+  transfer_id: string;
+  source_bank_account_id: string;
+  destination_bank_account_id: string;
+  transfer_date: string;
+  amount: number;
+  reference?: string | null;
+  memo?: string | null;
+  reversal_date: string;
+}) {
+  const { data: bankAccounts, error: bankAccountsError } = await context.supabase
+    .from("bank_accounts")
+    .select("id, name, current_balance, account_id")
+    .eq("org_id", context.orgId)
+    .in("id", [input.source_bank_account_id, input.destination_bank_account_id]);
+
+  if (bankAccountsError) {
+    throw new Error(bankAccountsError.message);
+  }
+
+  const source = (bankAccounts ?? []).find((row) => String(row.id) === input.source_bank_account_id);
+  const destination = (bankAccounts ?? []).find((row) => String(row.id) === input.destination_bank_account_id);
+
+  if (!source || !destination) {
+    throw new Error("Both source and destination bank accounts are required.");
+  }
+  if (typeof source.account_id !== "string" || typeof destination.account_id !== "string") {
+    throw new Error("Bank accounts must be linked to ledger accounts before reversing transfers.");
+  }
+
+  const reference = input.reference?.trim() ? input.reference.trim() : `TRF-${Date.now().toString().slice(-6)}`;
+  const reversalMemo = input.memo?.trim() || `Reversal of internal transfer ${reference}`;
+  const amount = toMoney(Number(input.amount));
+
+  const journalEntryId = await insertJournal(context, {
+    entry_date: input.reversal_date,
+    memo: reversalMemo,
+    source_type: "internal_transfer",
+    source_id: input.transfer_id,
+    lines: [
+      { account_id: String(source.account_id), debit: amount, credit: 0, description: `Transfer reversal in ${reference}` },
+      { account_id: String(destination.account_id), debit: 0, credit: amount, description: `Transfer reversal out ${reference}` }
+    ]
+  });
+
+  await upsertAccountBalancesFromJournal(context, journalEntryId);
+
+  const sourceBalance = Number(source.current_balance ?? 0) + amount;
+  const destinationBalance = Number(destination.current_balance ?? 0) - amount;
+
+  await Promise.all([
+    context.supabase
+      .from("bank_accounts")
+      .update({ current_balance: toMoney(sourceBalance) })
+      .eq("org_id", context.orgId)
+      .eq("id", input.source_bank_account_id),
+    context.supabase
+      .from("bank_accounts")
+      .update({ current_balance: toMoney(destinationBalance) })
+      .eq("org_id", context.orgId)
+      .eq("id", input.destination_bank_account_id)
+  ]);
+
+  return {
+    status: "reversed" as const,
+    reversal_journal_entry_id: journalEntryId,
+    reversal_date: input.reversal_date,
+    reversed_at: new Date().toISOString()
+  };
+}
+
 export async function createInvoiceRefundJournal(context: ApiContext, input: {
   invoice_id: string;
   payment_reference: string;

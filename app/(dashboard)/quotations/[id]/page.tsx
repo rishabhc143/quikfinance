@@ -1,6 +1,5 @@
-import { DetailPage } from "@/components/shared/DetailPage";
-import { getModuleConfig } from "@/lib/modules";
+import { DocumentDetail } from "@/components/transactions/DocumentDetail";
 
 export default function QuotationDetailPage({ params }: { params: { id: string } }) {
-  return <DetailPage config={getModuleConfig("quotations")} id={params.id} />;
+  return <DocumentDetail kind="quotation" id={params.id} />;
 }
