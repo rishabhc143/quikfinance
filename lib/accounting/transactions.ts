@@ -775,6 +775,95 @@ export async function createExpenseTransaction(context: ApiContext, input: {
   return { ...expense, journal_entry_id: journalEntryId };
 }
 
+export async function createInternalTransferTransaction(context: ApiContext, input: {
+  source_bank_account_id: string;
+  destination_bank_account_id: string;
+  transfer_date: string;
+  amount: number;
+  reference?: string | null;
+  memo?: string | null;
+  status?: "draft" | "posted" | "cancelled";
+}) {
+  if (input.source_bank_account_id === input.destination_bank_account_id) {
+    throw new Error("Source and destination bank accounts must be different.");
+  }
+  if (Number(input.amount ?? 0) <= 0) {
+    throw new Error("Transfer amount must be greater than zero.");
+  }
+
+  const { data: bankAccounts, error: bankAccountsError } = await context.supabase
+    .from("bank_accounts")
+    .select("id, name, current_balance, account_id")
+    .eq("org_id", context.orgId)
+    .in("id", [input.source_bank_account_id, input.destination_bank_account_id]);
+
+  if (bankAccountsError) {
+    throw new Error(bankAccountsError.message);
+  }
+
+  const source = (bankAccounts ?? []).find((row) => String(row.id) === input.source_bank_account_id);
+  const destination = (bankAccounts ?? []).find((row) => String(row.id) === input.destination_bank_account_id);
+
+  if (!source || !destination) {
+    throw new Error("Both source and destination bank accounts are required.");
+  }
+  if (typeof source.account_id !== "string" || typeof destination.account_id !== "string") {
+    throw new Error("Bank accounts must be linked to ledger accounts before posting transfers.");
+  }
+
+  const status = input.status ?? "posted";
+  const reference = input.reference?.trim() ? input.reference.trim() : `TRF-${Date.now().toString().slice(-6)}`;
+  const transfer = {
+    id: crypto.randomUUID(),
+    org_id: context.orgId,
+    source_bank_account_id: input.source_bank_account_id,
+    destination_bank_account_id: input.destination_bank_account_id,
+    transfer_date: input.transfer_date,
+    amount: toMoney(Number(input.amount)),
+    reference,
+    memo: input.memo ?? null,
+    status,
+    journal_entry_id: null as string | null,
+    created_by: context.userId,
+    created_at: new Date().toISOString()
+  };
+
+  if (status !== "posted") {
+    return transfer;
+  }
+
+  const journalEntryId = await insertJournal(context, {
+    entry_date: input.transfer_date,
+    memo: input.memo?.trim() || `Internal transfer ${reference}`,
+    source_type: "internal_transfer",
+    source_id: String(transfer.id),
+    lines: [
+      { account_id: String(destination.account_id), debit: toMoney(Number(input.amount)), credit: 0, description: `Transfer in ${reference}` },
+      { account_id: String(source.account_id), debit: 0, credit: toMoney(Number(input.amount)), description: `Transfer out ${reference}` }
+    ]
+  });
+
+  await upsertAccountBalancesFromJournal(context, journalEntryId);
+
+  const sourceBalance = Number(source.current_balance ?? 0) - Number(input.amount);
+  const destinationBalance = Number(destination.current_balance ?? 0) + Number(input.amount);
+
+  await Promise.all([
+    context.supabase
+      .from("bank_accounts")
+      .update({ current_balance: toMoney(sourceBalance) })
+      .eq("org_id", context.orgId)
+      .eq("id", input.source_bank_account_id),
+    context.supabase
+      .from("bank_accounts")
+      .update({ current_balance: toMoney(destinationBalance) })
+      .eq("org_id", context.orgId)
+      .eq("id", input.destination_bank_account_id)
+  ]);
+
+  return { ...transfer, journal_entry_id: journalEntryId };
+}
+
 export async function createInvoiceRefundJournal(context: ApiContext, input: {
   invoice_id: string;
   payment_reference: string;

@@ -15,6 +15,10 @@ import { todayISO } from "@/lib/utils/dates";
 type ContactOption = { id: string; display_name: string; state_code?: string | null };
 type ItemOption = { id: string; name: string; sales_price?: number; purchase_price?: number; gst_rate?: number | null };
 type TaxOption = { id: string; name: string; rate: number };
+type TemplateSettings = {
+  default_invoice_template?: "classic" | "modern" | "minimal";
+  invoice_note_template?: string;
+};
 
 type LineItem = {
   item_id: string | null;
@@ -58,6 +62,7 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
   const [placeOfSupply, setPlaceOfSupply] = useState("");
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("");
+  const [templateType, setTemplateType] = useState<"classic" | "modern" | "minimal">("classic");
   const [documentNumber, setDocumentNumber] = useState("");
   const [roundOff, setRoundOff] = useState(0);
   const [tdsAmount, setTdsAmount] = useState(0);
@@ -74,21 +79,31 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
     const boot = async () => {
       setLoading(true);
       try {
-        const [contactRes, itemRes, taxRes] = await Promise.all([
+        const [contactRes, itemRes, taxRes, templateRes] = await Promise.all([
           fetch(contactsApi, { signal: controller.signal }),
           fetch("/api/v1/inventory", { signal: controller.signal }),
-          fetch("/api/v1/taxes", { signal: controller.signal })
+          fetch("/api/v1/taxes", { signal: controller.signal }),
+          isInvoice ? fetch("/api/v1/templates/settings", { signal: controller.signal }) : Promise.resolve(new Response(JSON.stringify({ data: {} })))
         ]);
 
-        const [contactJson, itemJson, taxJson] = await Promise.all([
+        const [contactJson, itemJson, taxJson, templateJson] = await Promise.all([
           contactRes.json().catch(() => ({ data: [] })),
           itemRes.json().catch(() => ({ data: [] })),
-          taxRes.json().catch(() => ({ data: [] }))
+          taxRes.json().catch(() => ({ data: [] })),
+          templateRes.json().catch(() => ({ data: {} }))
         ]);
 
         setContacts(Array.isArray(contactJson.data) ? contactJson.data : []);
         setItems(Array.isArray(itemJson.data) ? itemJson.data : []);
         setTaxes(Array.isArray(taxJson.data) ? taxJson.data : []);
+        const templateSettings = (templateJson.data ?? {}) as TemplateSettings;
+
+        if (!loadId && isInvoice) {
+          setTemplateType(templateSettings.default_invoice_template ?? "classic");
+          if (typeof templateSettings.invoice_note_template === "string" && templateSettings.invoice_note_template.trim()) {
+            setTerms(templateSettings.invoice_note_template);
+          }
+        }
 
         if (loadId) {
           const response = await fetch(`${apiBase}/${loadId}`, { signal: controller.signal });
@@ -103,6 +118,7 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
           setPlaceOfSupply(String(record.place_of_supply ?? ""));
           setNotes(String(record.notes ?? ""));
           setTerms(String(record.terms ?? ""));
+          setTemplateType((String(record.template_type ?? (templateSettings.default_invoice_template ?? "classic")) as "classic" | "modern" | "minimal"));
           setDocumentNumber(duplicateId ? "" : String(isInvoice ? record.invoice_number ?? "" : record.bill_number ?? ""));
           setRoundOff(Number(record.round_off ?? 0));
           setTdsAmount(Number(record.tds_amount ?? 0));
@@ -203,7 +219,7 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
         payload.invoice_number = documentNumber || undefined;
         payload.round_off = roundOff;
         payload.terms = terms || null;
-        payload.template_type = "classic";
+        payload.template_type = templateType;
       } else {
         payload.bill_number = documentNumber || undefined;
         payload.tds_amount = tdsAmount;
@@ -296,6 +312,16 @@ export function DocumentEditor({ kind }: { kind: "invoice" | "bill" }) {
               <Input type="number" step="0.01" value={tdsAmount} onChange={(event) => setTdsAmount(Number(event.target.value || 0))} className="mt-2" />
             </div>
           )}
+          {isInvoice ? (
+            <div>
+              <Label>Template</Label>
+              <select value={templateType} onChange={(event) => setTemplateType(event.target.value as "classic" | "modern" | "minimal")} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
+                <option value="classic">classic</option>
+                <option value="modern">modern</option>
+                <option value="minimal">minimal</option>
+              </select>
+            </div>
+          ) : null}
           {isInvoice ? (
             <div>
               <Label>Round off</Label>
