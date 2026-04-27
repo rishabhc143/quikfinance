@@ -2,7 +2,7 @@
 
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Globe2, LogOut, Moon, Search, UserRound } from "lucide-react";
+import { Bell, BookOpen, Globe2, LogOut, Moon, Search, UserRound } from "lucide-react";
 import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -102,6 +102,12 @@ export function Topbar() {
         <Button asChild variant="ghost" aria-label="Notifications">
           <Link href="/exception-queue">
             <Bell className="h-4 w-4" />
+          </Link>
+        </Button>
+        <Button asChild variant="ghost" aria-label="Open demo guide" className="gap-2">
+          <Link href="/help/demo-guide">
+            <BookOpen className="h-4 w-4" />
+            <span className="hidden md:inline">{t("topbar.help", "Help")}</span>
           </Link>
         </Button>
         <DropdownMenu.Root>
