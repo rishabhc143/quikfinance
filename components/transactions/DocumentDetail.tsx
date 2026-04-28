@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { formatMoney } from "@/lib/utils/currency";
 
 type BankAccount = { id: string; name: string };
-type DocumentKind = "invoice" | "bill" | "quotation" | "sales-order";
+type DocumentKind = "invoice" | "bill" | "quotation" | "sales-order" | "purchase-order";
 
 type DocumentRecord = {
   id: string;
@@ -18,6 +18,7 @@ type DocumentRecord = {
   bill_number?: string;
   quotation_number?: string;
   sales_order_number?: string;
+  purchase_order_number?: string;
   customer?: string;
   vendor?: string;
   issue_date: string;
@@ -35,6 +36,7 @@ function kindLabel(kind: DocumentKind) {
   if (kind === "invoice") return "invoice";
   if (kind === "bill") return "bill";
   if (kind === "sales-order") return "sales order";
+  if (kind === "purchase-order") return "purchase order";
   return "quotation";
 }
 
@@ -43,6 +45,7 @@ export function DocumentDetail({ kind, id }: { kind: DocumentKind; id: string })
   const isBill = kind === "bill";
   const isQuotation = kind === "quotation";
   const isSalesOrder = kind === "sales-order";
+  const isPurchaseOrder = kind === "purchase-order";
   const [document, setDocument] = useState<DocumentRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState("");
@@ -55,8 +58,8 @@ export function DocumentDetail({ kind, id }: { kind: DocumentKind; id: string })
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const requests = [fetch(`/api/v1/${isInvoice ? "invoices" : isBill ? "bills" : isQuotation ? "quotations" : "sales-orders"}/${id}`)];
-      if (!isQuotation && !isSalesOrder) {
+      const requests = [fetch(`/api/v1/${isInvoice ? "invoices" : isBill ? "bills" : isQuotation ? "quotations" : isSalesOrder ? "sales-orders" : "purchase-orders"}/${id}`)];
+      if (!isQuotation && !isSalesOrder && !isPurchaseOrder) {
         requests.push(fetch("/api/v1/bank-accounts"));
       }
 
@@ -73,7 +76,7 @@ export function DocumentDetail({ kind, id }: { kind: DocumentKind; id: string })
     } finally {
       setLoading(false);
     }
-  }, [id, isBill, isInvoice, isQuotation, isSalesOrder]);
+  }, [id, isBill, isInvoice, isPurchaseOrder, isQuotation, isSalesOrder]);
 
   useEffect(() => {
     void load();
@@ -115,8 +118,8 @@ export function DocumentDetail({ kind, id }: { kind: DocumentKind; id: string })
     return <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">Loading {kindLabel(kind)}...</div>;
   }
 
-  const title = isInvoice ? document.invoice_number : isBill ? document.bill_number : isQuotation ? document.quotation_number : document.sales_order_number;
-  const counterpart = isBill ? document.vendor : document.customer;
+  const title = isInvoice ? document.invoice_number : isBill ? document.bill_number : isQuotation ? document.quotation_number : isSalesOrder ? document.sales_order_number : document.purchase_order_number;
+  const counterpart = isBill || isPurchaseOrder ? document.vendor : document.customer;
 
   return (
     <div className="space-y-6">
@@ -127,16 +130,16 @@ export function DocumentDetail({ kind, id }: { kind: DocumentKind; id: string })
             <p className="mt-1 text-sm text-muted-foreground">{counterpart}</p>
           </div>
           <div className="flex gap-2">
-            <Button asChild variant="secondary"><Link href={`/${isInvoice ? "invoices" : isBill ? "bills" : isQuotation ? "quotations" : "sales-orders"}/new?edit=${id}`}>Edit</Link></Button>
+            <Button asChild variant="secondary"><Link href={`/${isInvoice ? "invoices" : isBill ? "bills" : isQuotation ? "quotations" : isSalesOrder ? "sales-orders" : "purchase-orders"}/new?edit=${id}`}>Edit</Link></Button>
             {isInvoice ? <Button asChild variant="secondary"><Link href={`/invoices/${id}/payment-link`}>Payment link</Link></Button> : null}
           </div>
         </CardHeader>
         <CardContent className="grid gap-3 text-sm md:grid-cols-2">
           <div className="flex justify-between"><span className="text-muted-foreground">Issue date</span><span>{document.issue_date}</span></div>
-          <div className="flex justify-between"><span className="text-muted-foreground">{isQuotation ? "Expiry date" : isSalesOrder ? "Expected date" : "Due date"}</span><span>{document.due_date}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">{isQuotation ? "Expiry date" : isSalesOrder || isPurchaseOrder ? "Expected date" : "Due date"}</span><span>{document.due_date}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Status</span><span>{document.status}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span>{formatMoney(document.total)}</span></div>
-          {!isQuotation && !isSalesOrder ? (
+          {!isQuotation && !isSalesOrder && !isPurchaseOrder ? (
             <div className="flex justify-between font-semibold"><span>Balance due</span><span>{formatMoney(Number(document.balance_due ?? 0))}</span></div>
           ) : null}
           {document.template_type ? <div className="flex justify-between"><span className="text-muted-foreground">Template</span><span>{document.template_type}</span></div> : null}
@@ -161,7 +164,7 @@ export function DocumentDetail({ kind, id }: { kind: DocumentKind; id: string })
         </CardContent>
       </Card>
 
-      {!isQuotation && !isSalesOrder && Number(document.balance_due ?? 0) > 0 ? (
+      {!isQuotation && !isSalesOrder && !isPurchaseOrder && Number(document.balance_due ?? 0) > 0 ? (
         <Card>
           <CardHeader>
             <CardTitle>Record payment</CardTitle>

@@ -32,7 +32,7 @@ type LineItem = {
   gst_rate: number;
 };
 
-type DocumentKind = "invoice" | "bill" | "quotation" | "sales-order";
+type DocumentKind = "invoice" | "bill" | "quotation" | "sales-order" | "purchase-order";
 
 function emptyLine(): LineItem {
   return { item_id: null, description: "", quantity: 1, rate: 0, discount: 0, tax_rate_id: null, gst_rate: 0 };
@@ -46,6 +46,7 @@ function kindLabel(kind: DocumentKind) {
   if (kind === "invoice") return "Invoice";
   if (kind === "bill") return "Bill";
   if (kind === "sales-order") return "Sales order";
+  if (kind === "purchase-order") return "Purchase order";
   return "Quotation";
 }
 
@@ -58,10 +59,11 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
   const isBill = kind === "bill";
   const isQuotation = kind === "quotation";
   const isSalesOrder = kind === "sales-order";
+  const isPurchaseOrder = kind === "purchase-order";
   const label = kindLabel(kind);
-  const apiBase = isInvoice ? "/api/v1/invoices" : isBill ? "/api/v1/bills" : isQuotation ? "/api/v1/quotations" : "/api/v1/sales-orders";
-  const contactsApi = isBill ? "/api/v1/vendors" : "/api/v1/customers";
-  const listPath = isInvoice ? "/invoices" : isBill ? "/bills" : isQuotation ? "/quotations" : "/sales-orders";
+  const apiBase = isInvoice ? "/api/v1/invoices" : isBill ? "/api/v1/bills" : isQuotation ? "/api/v1/quotations" : isSalesOrder ? "/api/v1/sales-orders" : "/api/v1/purchase-orders";
+  const contactsApi = isBill || isPurchaseOrder ? "/api/v1/vendors" : "/api/v1/customers";
+  const listPath = isInvoice ? "/invoices" : isBill ? "/bills" : isQuotation ? "/quotations" : isSalesOrder ? "/sales-orders" : "/purchase-orders";
 
   const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [items, setItems] = useState<ItemOption[]>([]);
@@ -99,7 +101,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
           fetch(contactsApi, { signal: controller.signal }),
           fetch("/api/v1/inventory", { signal: controller.signal }),
           fetch("/api/v1/taxes", { signal: controller.signal }),
-          isBill || isSalesOrder ? Promise.resolve(new Response(JSON.stringify({ data: {} }))) : fetch("/api/v1/templates/settings", { signal: controller.signal })
+          isBill || isSalesOrder || isPurchaseOrder ? Promise.resolve(new Response(JSON.stringify({ data: {} }))) : fetch("/api/v1/templates/settings", { signal: controller.signal })
         ]);
 
         const [contactJson, itemJson, taxJson, templateJson] = await Promise.all([
@@ -114,7 +116,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
         setTaxes(Array.isArray(taxJson.data) ? taxJson.data : []);
 
         const templateSettings = (templateJson.data ?? {}) as TemplateSettings;
-        if (!loadId && !isBill && !isSalesOrder) {
+        if (!loadId && !isBill && !isSalesOrder && !isPurchaseOrder) {
           const defaultTemplate = isInvoice ? templateSettings.default_invoice_template : templateSettings.default_quotation_template;
           const defaultTerms = isInvoice ? templateSettings.invoice_note_template : templateSettings.quotation_note_template;
           setTemplateType(defaultTemplate ?? "classic");
@@ -147,7 +149,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
             duplicateId
               ? ""
               : String(
-                  isInvoice ? record.invoice_number ?? "" : isBill ? record.bill_number ?? "" : isQuotation ? record.quotation_number ?? "" : record.sales_order_number ?? ""
+                  isInvoice ? record.invoice_number ?? "" : isBill ? record.bill_number ?? "" : isQuotation ? record.quotation_number ?? "" : isSalesOrder ? record.sales_order_number ?? "" : record.purchase_order_number ?? ""
                 )
           );
           setRoundOff(Number(record.round_off ?? 0));
@@ -174,7 +176,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
 
     void boot();
     return () => controller.abort();
-  }, [apiBase, contactsApi, duplicateId, isBill, isInvoice, isQuotation, isSalesOrder, loadId]);
+  }, [apiBase, contactsApi, duplicateId, isBill, isInvoice, isPurchaseOrder, isQuotation, isSalesOrder, loadId]);
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce((sum, line) => sum + line.quantity * line.rate, 0);
@@ -201,7 +203,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
     updateLine(index, {
       item_id: itemId || null,
       description: item?.name ?? "",
-      rate: Number(isBill ? item?.purchase_price ?? 0 : item?.sales_price ?? 0),
+      rate: Number(isBill || isPurchaseOrder ? item?.purchase_price ?? 0 : item?.sales_price ?? 0),
       gst_rate: Number(item?.gst_rate ?? 0),
       tax_rate_id: tax?.id ?? null
     });
@@ -209,7 +211,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
 
   const submit = async () => {
     if (!contactId) {
-      toast.error(`Select a ${isBill ? "vendor" : "customer"}.`);
+      toast.error(`Select a ${isBill || isPurchaseOrder ? "vendor" : "customer"}.`);
       return;
     }
 
@@ -259,8 +261,10 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
         payload.quotation_number = documentNumber || undefined;
         payload.terms = terms || null;
         payload.template_type = templateType;
-      } else {
+      } else if (isSalesOrder) {
         payload.sales_order_number = documentNumber || undefined;
+      } else {
+        payload.purchase_order_number = documentNumber || undefined;
       }
 
       const response = await fetch(editId ? `${apiBase}/${editId}` : apiBase, {
@@ -295,32 +299,32 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label>{isBill ? "Vendor" : "Customer"}</Label>
+            <Label>{isBill || isPurchaseOrder ? "Vendor" : "Customer"}</Label>
             <select value={contactId} onChange={(event) => setContactId(event.target.value)} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
               <option value="">Select</option>
               {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.display_name}</option>)}
             </select>
             <div className="mt-2 flex flex-wrap gap-3 text-xs">
-              <Link href={isBill ? "/vendors/new" : "/customers/new"} className="text-primary underline underline-offset-2">
-                {isBill ? "New vendor" : "New customer"}
+              <Link href={isBill || isPurchaseOrder ? "/vendors/new" : "/customers/new"} className="text-primary underline underline-offset-2">
+                {isBill || isPurchaseOrder ? "New vendor" : "New customer"}
               </Link>
               {contactId ? (
-                <Link href={`${isBill ? "/vendors" : "/customers"}/${contactId}`} className="text-muted-foreground underline underline-offset-2">
-                  {isBill ? "Open vendor" : "Open customer"}
+                <Link href={`${isBill || isPurchaseOrder ? "/vendors" : "/customers"}/${contactId}`} className="text-muted-foreground underline underline-offset-2">
+                  {isBill || isPurchaseOrder ? "Open vendor" : "Open customer"}
                 </Link>
               ) : null}
             </div>
           </div>
           <div>
-            <Label>{isInvoice ? "Invoice number" : isBill ? "Bill number" : isQuotation ? "Quotation number" : "Sales order number"}</Label>
+            <Label>{isInvoice ? "Invoice number" : isBill ? "Bill number" : isQuotation ? "Quotation number" : isSalesOrder ? "Sales order number" : "Purchase order number"}</Label>
             <Input value={documentNumber} onChange={(event) => setDocumentNumber(event.target.value)} className="mt-2" />
           </div>
           <div>
-            <Label>{isQuotation ? "Quotation date" : isSalesOrder ? "Order date" : "Issue date"}</Label>
+            <Label>{isQuotation ? "Quotation date" : isSalesOrder ? "Order date" : isPurchaseOrder ? "PO date" : "Issue date"}</Label>
             <Input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} className="mt-2" />
           </div>
           <div>
-            <Label>{isQuotation ? "Expiry date" : isSalesOrder ? "Expected date" : "Due date"}</Label>
+            <Label>{isQuotation ? "Expiry date" : isSalesOrder || isPurchaseOrder ? "Expected date" : "Due date"}</Label>
             <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-2" />
           </div>
           <div>
@@ -332,10 +336,12 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
                   ? ["draft", "approved"]
                   : isQuotation
                     ? ["draft", "sent", "accepted"]
-                    : ["draft", "confirmed", "fulfilled", "cancelled"]
-              ).map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
-          </div>
+                    : isSalesOrder
+                      ? ["draft", "confirmed", "fulfilled", "cancelled"]
+                      : ["draft", "approved", "received", "cancelled"]
+               ).map((option) => <option key={option} value={option}>{option}</option>)}
+             </select>
+           </div>
           <div>
             <Label>Currency</Label>
             <select value={currency} onChange={(event) => setCurrency(event.target.value)} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
@@ -343,10 +349,12 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
               <option value="USD">USD</option>
             </select>
           </div>
-          <div>
-            <Label>Place of supply</Label>
-            <Input value={placeOfSupply} onChange={(event) => setPlaceOfSupply(event.target.value)} className="mt-2" placeholder="27" />
-          </div>
+          {!isPurchaseOrder ? (
+            <div>
+              <Label>Place of supply</Label>
+              <Input value={placeOfSupply} onChange={(event) => setPlaceOfSupply(event.target.value)} className="mt-2" placeholder="27" />
+            </div>
+          ) : null}
           {isInvoice || isQuotation ? (
             <div>
               <Label>{isQuotation ? "Proposal terms" : "Terms"}</Label>
@@ -358,7 +366,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
               <Input type="number" step="0.01" value={tdsAmount} onChange={(event) => setTdsAmount(Number(event.target.value || 0))} className="mt-2" />
             </div>
           ) : null}
-          {!isBill && !isSalesOrder ? (
+          {!isBill && !isSalesOrder && !isPurchaseOrder ? (
             <div>
               <Label>Template</Label>
               <select value={templateType} onChange={(event) => setTemplateType(event.target.value as "classic" | "modern" | "minimal")} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">

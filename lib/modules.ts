@@ -398,7 +398,7 @@ export const moduleConfigs: Record<string, ModuleConfig> = {
     primaryAction: "New purchase order",
     columns: [
       { key: "purchase_order_number", label: "PO" },
-      { key: "contact_id", label: "Vendor" },
+      { key: "vendor", label: "Vendor" },
       { key: "issue_date", label: "Date", kind: "date" },
       { key: "due_date", label: "Expected", kind: "date" },
       { key: "total", label: "Total", kind: "money", align: "right" },

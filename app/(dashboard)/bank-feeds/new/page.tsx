@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { redirect } from "next/navigation";
 
 export default function NewBankFeedPage() {
-  return <FormPage config={getModuleConfig("bank-feeds")} />;
+  redirect("/bank-feeds");
 }

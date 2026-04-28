@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { DocumentEditor } from "@/components/transactions/DocumentEditor";
 
-export default function NewPurchaseOrderPage() {
-  return <FormPage config={getModuleConfig("purchase-orders")} />;
+export default function PurchaseOrderCreatePage() {
+  return <DocumentEditor kind="purchase-order" />;
 }

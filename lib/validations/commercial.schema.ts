@@ -41,7 +41,12 @@ export const salesOrderSchema = baseCommercialSchema.extend({
 
 export const purchaseOrderSchema = baseCommercialSchema.extend({
   purchase_order_number: z.string().trim().min(2).max(40).optional(),
-  status: statusLabelSchema.default("draft")
+  status: z.enum(["draft", "approved", "received", "cancelled"]).default("draft"),
+  discount_total: moneySchema.default(0),
+  line_items: z.array(lineItemSchema).min(1).optional()
+}).refine((value) => !value.due_date || value.due_date >= value.issue_date, {
+  message: "Expected date must be on or after purchase order date.",
+  path: ["due_date"]
 });
 
 export const creditNoteSchema = baseCommercialSchema.extend({
