@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { TimeEntryEditor } from "@/components/operations/TimeEntryEditor";
 
 export default function NewTimeEntryPage() {
-  return <FormPage config={getModuleConfig("time-tracking")} />;
+  return <TimeEntryEditor />;
 }

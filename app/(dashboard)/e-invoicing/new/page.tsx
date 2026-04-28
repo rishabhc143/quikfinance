@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { EInvoicingEditor } from "@/components/operations/EInvoicingEditor";
 
 export default function NewEInvoicingPage() {
-  return <FormPage config={getModuleConfig("e-invoicing")} />;
+  return <EInvoicingEditor />;
 }

@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { TdsTcsEditor } from "@/components/operations/TdsTcsEditor";
 
 export default function NewTdsTcsPage() {
-  return <FormPage config={getModuleConfig("tds-tcs")} />;
+  return <TdsTcsEditor />;
 }

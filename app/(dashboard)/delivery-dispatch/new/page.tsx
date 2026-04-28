@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { DeliveryDispatchEditor } from "@/components/operations/DeliveryDispatchEditor";
 
 export default function NewDeliveryDispatchPage() {
-  return <FormPage config={getModuleConfig("delivery-dispatch")} />;
+  return <DeliveryDispatchEditor />;
 }

@@ -1,6 +1,5 @@
-import { DetailPage } from "@/components/shared/DetailPage";
-import { getModuleConfig } from "@/lib/modules";
+import { TimeEntryDetail } from "@/components/operations/TimeEntryDetail";
 
 export default function TimeEntryDetailPage({ params }: { params: { id: string } }) {
-  return <DetailPage config={getModuleConfig("time-tracking")} id={params.id} />;
+  return <TimeEntryDetail id={params.id} />;
 }

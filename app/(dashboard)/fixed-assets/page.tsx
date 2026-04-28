@@ -1,6 +1,5 @@
-import { ModulePage } from "@/components/shared/ModulePage";
-import { getModuleConfig } from "@/lib/modules";
+import { FixedAssetsWorkspace } from "@/components/workflows/FixedAssetsWorkspace";
 
 export default function FixedAssetsPage() {
-  return <ModulePage config={getModuleConfig("fixed-assets")} />;
+  return <FixedAssetsWorkspace />;
 }

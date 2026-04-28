@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { FixedAssetEditor } from "@/components/operations/FixedAssetEditor";
 
 export default function NewFixedAssetPage() {
-  return <FormPage config={getModuleConfig("fixed-assets")} />;
+  return <FixedAssetEditor />;
 }

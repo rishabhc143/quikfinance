@@ -1,6 +1,5 @@
-import { ModulePage } from "@/components/shared/ModulePage";
-import { getModuleConfig } from "@/lib/modules";
+import { DeliveryDispatchWorkspace } from "@/components/workflows/DeliveryDispatchWorkspace";
 
 export default function DeliveryDispatchPage() {
-  return <ModulePage config={getModuleConfig("delivery-dispatch")} />;
+  return <DeliveryDispatchWorkspace />;
 }
