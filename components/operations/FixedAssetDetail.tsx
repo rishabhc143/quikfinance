@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,25 +23,27 @@ type AssetRecord = {
 export function FixedAssetDetail({ id }: { id: string }) {
   const [asset, setAsset] = useState<AssetRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState<"depreciate" | "dispose" | null>(null);
+
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/v1/fixed-assets/${id}`, { signal });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error?.message ?? "Fixed asset could not be loaded.");
+      setAsset(json.data ?? null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Fixed asset could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
     const controller = new AbortController();
-    const load = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/v1/fixed-assets/${id}`, { signal: controller.signal });
-        const json = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(json.error?.message ?? "Fixed asset could not be loaded.");
-        setAsset(json.data ?? null);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Fixed asset could not be loaded.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
+    void load(controller.signal);
     return () => controller.abort();
-  }, [id]);
+  }, [load]);
 
   const derived = useMemo(() => {
     const purchaseCost = Number(asset?.purchase_cost ?? 0);
@@ -56,6 +58,40 @@ export function FixedAssetDetail({ id }: { id: string }) {
   if (loading || !asset) {
     return <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">Loading fixed asset...</div>;
   }
+
+  const postDepreciation = async () => {
+    setWorking("depreciate");
+    try {
+      const response = await fetch(`/api/v1/fixed-assets/${id}/depreciate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ months: 1 })
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error?.message ?? "Depreciation could not be posted.");
+      toast.success("Depreciation posted.");
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Depreciation could not be posted.");
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const dispose = async () => {
+    setWorking("dispose");
+    try {
+      const response = await fetch(`/api/v1/fixed-assets/${id}/dispose`, { method: "POST" });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error?.message ?? "Asset could not be disposed.");
+      toast.success("Asset marked as disposed.");
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Asset could not be disposed.");
+    } finally {
+      setWorking(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -76,6 +112,17 @@ export function FixedAssetDetail({ id }: { id: string }) {
           <div className="flex justify-between"><span className="text-muted-foreground">Monthly depreciation</span><span>{formatMoney(derived.monthly)}</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Useful life</span><span>{asset.useful_life_months} months</span></div>
           <div className="flex justify-between"><span className="text-muted-foreground">Method</span><span>{asset.depreciation_method}</span></div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Lifecycle actions</CardTitle></CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button onClick={postDepreciation} disabled={working !== null || asset.status !== "active"}>
+            {working === "depreciate" ? "Posting..." : "Post one month depreciation"}
+          </Button>
+          <Button variant="destructive" onClick={dispose} disabled={working !== null || asset.status === "disposed"}>
+            {working === "dispose" ? "Updating..." : "Mark disposed"}
+          </Button>
         </CardContent>
       </Card>
     </div>

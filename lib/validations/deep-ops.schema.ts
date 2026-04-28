@@ -43,6 +43,25 @@ export const eInvoicingSchema = z.object({
   error_message: z.string().max(1000).optional().nullable()
 });
 
+export const eWayBillSchema = z.object({
+  dispatch_id: idSchema.optional().nullable(),
+  invoice_id: idSchema.optional().nullable(),
+  dispatch_number: z.string().trim().max(40).optional().nullable(),
+  invoice_number: z.string().trim().max(40).optional().nullable(),
+  document_number: z.string().trim().min(2).max(40).optional(),
+  generated_on: z.coerce.date().transform((value) => value.toISOString().slice(0, 10)),
+  transport_mode: z.enum(["road", "rail", "air", "ship"]).default("road"),
+  transporter_name: z.string().trim().max(160).optional().nullable(),
+  vehicle_number: z.string().trim().max(40).optional().nullable(),
+  tracking_number: z.string().trim().max(120).optional().nullable(),
+  distance_km: moneySchema.default(0),
+  taxable_value: moneySchema.default(0),
+  total_tax: moneySchema.default(0),
+  valid_until: z.coerce.date().transform((value) => value.toISOString().slice(0, 10)).optional().nullable(),
+  status: z.enum(["draft", "ready", "generated", "expired", "cancelled"]).default("draft"),
+  notes: z.string().max(1000).optional().nullable()
+});
+
 export const tdsTcsSchema = z.object({
   section_code: z.string().trim().min(2).max(40),
   tax_kind: z.enum(["tds", "tcs"]).default("tds"),

@@ -22,6 +22,7 @@ export function TimeEntryDetail({ id }: { id: string }) {
   const [entry, setEntry] = useState<TimeEntryRecord | null>(null);
   const [projectName, setProjectName] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -54,6 +55,26 @@ export function TimeEntryDetail({ id }: { id: string }) {
     return <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">Loading time entry...</div>;
   }
 
+  const createInvoiceDraft = async () => {
+    if (!entry.project_id) return;
+    setCreating(true);
+    try {
+      const response = await fetch("/api/v1/time-entries/invoice-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id: entry.project_id, entry_ids: [id] })
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error?.message ?? "Invoice draft could not be created.");
+      toast.success("Invoice draft created from this time entry.");
+      setEntry((current) => current ? { ...current, is_billed: true } : current);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Invoice draft could not be created.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -74,6 +95,17 @@ export function TimeEntryDetail({ id }: { id: string }) {
           {entry.project_id ? <div className="flex justify-between md:col-span-2"><span className="text-muted-foreground">Project</span><Link href={`/projects/${entry.project_id}`} className="text-primary underline underline-offset-2">{projectName || entry.project_id}</Link></div> : null}
         </CardContent>
       </Card>
+      {entry.is_billable && !entry.is_billed ? (
+        <Card>
+          <CardHeader><CardTitle>Billing action</CardTitle></CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button onClick={createInvoiceDraft} disabled={creating}>
+              {creating ? "Creating..." : "Create invoice draft"}
+            </Button>
+            {entry.project_id ? <Button asChild variant="secondary"><Link href={`/projects/${entry.project_id}`}>Open project</Link></Button> : null}
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

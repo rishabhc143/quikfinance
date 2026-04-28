@@ -277,6 +277,28 @@ export type FixedAssetRow = TenantRow & {
   status: string;
 };
 
+export type EWayBillRow = TenantRow & {
+  dispatch_id: string | null;
+  invoice_id: string | null;
+  dispatch_number: string | null;
+  invoice_number: string | null;
+  document_number: string;
+  generated_on: string;
+  transport_mode: string;
+  transporter_name: string | null;
+  vehicle_number: string | null;
+  tracking_number: string | null;
+  distance_km: number;
+  taxable_value: number;
+  total_tax: number;
+  valid_until: string | null;
+  status: string;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string | null;
+};
+
 export type BudgetRow = TenantRow & {
   name: string;
   fiscal_year: number;
@@ -505,6 +527,7 @@ export type Database = {
       reconciliations: TableShape<ReconciliationRow, InsertOf<ReconciliationRow>, UpdateOf<ReconciliationRow>>;
       budgets: TableShape<BudgetRow, InsertOf<BudgetRow>, UpdateOf<BudgetRow>>;
       fixed_assets: TableShape<FixedAssetRow, InsertOf<FixedAssetRow>, UpdateOf<FixedAssetRow>>;
+      e_way_bills: TableShape<EWayBillRow, InsertOf<EWayBillRow>, UpdateOf<EWayBillRow>>;
       items: TableShape<InventoryItemRow, InsertOf<InventoryItemRow>, UpdateOf<InventoryItemRow>>;
       projects: TableShape<ProjectRow, InsertOf<ProjectRow>, UpdateOf<ProjectRow>>;
       tax_rates: TableShape<TaxRateRow, InsertOf<TaxRateRow>, UpdateOf<TaxRateRow>>;

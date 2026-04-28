@@ -1,6 +1,6 @@
 import type { ApiContext } from "@/lib/api/auth";
 import type { CustomCrudConfig } from "@/lib/api/custom-module-crud";
-import { bankFeedSchema, deliveryDispatchSchema, eInvoicingSchema, tdsTcsSchema } from "@/lib/validations/deep-ops.schema";
+import { bankFeedSchema, deliveryDispatchSchema, eInvoicingSchema, eWayBillSchema, tdsTcsSchema } from "@/lib/validations/deep-ops.schema";
 
 function sequenceNumber(prefix: string) {
   return `${prefix}-${Date.now().toString().slice(-6)}`;
@@ -27,6 +27,15 @@ function prepareEInvoicing(body: Record<string, unknown>, context: ApiContext) {
     ...body,
     submission_number:
       typeof body.submission_number === "string" && body.submission_number.length > 0 ? body.submission_number : sequenceNumber("EINV"),
+    created_by: typeof body.created_by === "string" ? body.created_by : context.userId
+  };
+}
+
+function prepareEWayBill(body: Record<string, unknown>, context: ApiContext) {
+  return {
+    ...body,
+    document_number:
+      typeof body.document_number === "string" && body.document_number.length > 0 ? body.document_number : sequenceNumber("EWB"),
     created_by: typeof body.created_by === "string" ? body.created_by : context.userId
   };
 }
@@ -72,6 +81,18 @@ export const eInvoicingRouteConfig: CustomCrudConfig = {
   lockScope: "sales",
   prepareCreate: prepareEInvoicing,
   prepareUpdate: prepareEInvoicing
+};
+
+export const eWayBillsRouteConfig: CustomCrudConfig = {
+  table: "e_way_bills",
+  schema: eWayBillSchema,
+  entity: "e_way_bill",
+  searchColumn: "document_number",
+  orderColumn: "generated_on",
+  lockDateField: "generated_on",
+  lockScope: "sales",
+  prepareCreate: prepareEWayBill,
+  prepareUpdate: prepareEWayBill
 };
 
 export const tdsTcsRouteConfig: CustomCrudConfig = {

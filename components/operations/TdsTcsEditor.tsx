@@ -12,12 +12,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { todayISO } from "@/lib/utils/dates";
 
 type PartyOption = { id: string; display_name: string };
+type TransactionOption = { id: string; invoice_number?: string; bill_number?: string };
 
 export function TdsTcsEditor() {
   const router = useRouter();
   const [editId, setEditId] = useState<string | null>(null);
   const [customers, setCustomers] = useState<PartyOption[]>([]);
   const [vendors, setVendors] = useState<PartyOption[]>([]);
+  const [bills, setBills] = useState<TransactionOption[]>([]);
+  const [invoices, setInvoices] = useState<TransactionOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sectionCode, setSectionCode] = useState("");
@@ -43,15 +46,21 @@ export function TdsTcsEditor() {
     const load = async () => {
       setLoading(true);
       try {
-        const [customerRes, vendorRes, detailRes] = await Promise.all([
+        const [customerRes, vendorRes, billRes, invoiceRes, detailRes] = await Promise.all([
           fetch("/api/v1/customers", { signal: controller.signal }),
           fetch("/api/v1/vendors", { signal: controller.signal }),
+          fetch("/api/v1/bills", { signal: controller.signal }),
+          fetch("/api/v1/invoices", { signal: controller.signal }),
           editId ? fetch(`/api/v1/tds-tcs/${editId}`, { signal: controller.signal }) : Promise.resolve(null)
         ]);
         const customerJson = await customerRes.json().catch(() => ({ data: [] }));
         const vendorJson = await vendorRes.json().catch(() => ({ data: [] }));
+        const billJson = await billRes.json().catch(() => ({ data: [] }));
+        const invoiceJson = await invoiceRes.json().catch(() => ({ data: [] }));
         setCustomers(Array.isArray(customerJson.data) ? customerJson.data : []);
         setVendors(Array.isArray(vendorJson.data) ? vendorJson.data : []);
+        setBills(Array.isArray(billJson.data) ? billJson.data : []);
+        setInvoices(Array.isArray(invoiceJson.data) ? invoiceJson.data : []);
         if (detailRes) {
           const detailJson = await detailRes.json().catch(() => ({}));
           if (!detailRes.ok) throw new Error(detailJson.error?.message ?? "Tax record could not be loaded.");
@@ -80,6 +89,11 @@ export function TdsTcsEditor() {
   }, [editId]);
 
   const parties = useMemo(() => (partyType === "customer" ? customers : vendors), [customers, partyType, vendors]);
+  const transactions = useMemo(() => {
+    if (transactionType === "bill") return bills;
+    if (transactionType === "invoice") return invoices;
+    return [];
+  }, [bills, invoices, transactionType]);
 
   useEffect(() => {
     setTaxAmount(Number(((baseAmount * taxRate) / 100).toFixed(2)));
@@ -152,8 +166,31 @@ export function TdsTcsEditor() {
             </select>
           </div>
           <div>
-            <Label>Transaction ID</Label>
-            <Input value={transactionId} onChange={(event) => setTransactionId(event.target.value)} className="mt-2" />
+            <Label>{transactionType === "bill" ? "Bill" : transactionType === "invoice" ? "Invoice" : "Transaction ID"}</Label>
+            {transactionType === "bill" || transactionType === "invoice" ? (
+              <>
+                <select value={transactionId} onChange={(event) => setTransactionId(event.target.value)} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
+                  <option value="">Optional link</option>
+                  {transactions.map((transaction) => (
+                    <option key={transaction.id} value={transaction.id}>
+                      {transactionType === "bill" ? (transaction.bill_number ?? transaction.id) : (transaction.invoice_number ?? transaction.id)}
+                    </option>
+                  ))}
+                </select>
+                <div className="mt-2 flex gap-3 text-xs">
+                  <Link href={transactionType === "bill" ? "/bills" : "/invoices"} className="text-primary underline underline-offset-2">
+                    Open {transactionType === "bill" ? "bills" : "invoices"}
+                  </Link>
+                  {transactionId ? (
+                    <Link href={`${transactionType === "bill" ? "/bills" : "/invoices"}/${transactionId}`} className="text-muted-foreground underline underline-offset-2">
+                      Open selected
+                    </Link>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <Input value={transactionId} onChange={(event) => setTransactionId(event.target.value)} className="mt-2" />
+            )}
           </div>
           <div>
             <Label>Party type</Label>
