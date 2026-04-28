@@ -1,6 +1,5 @@
-import { ModulePage } from "@/components/shared/ModulePage";
-import { getModuleConfig } from "@/lib/modules";
+import { BankAccountsWorkspace } from "@/components/banking/BankAccountsWorkspace";
 
 export default function BankAccountsPage() {
-  return <ModulePage config={getModuleConfig("bank-accounts")} />;
+  return <BankAccountsWorkspace />;
 }

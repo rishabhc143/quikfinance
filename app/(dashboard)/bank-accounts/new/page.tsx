@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { BankAccountsWorkspace } from "@/components/banking/BankAccountsWorkspace";
 
 export default function NewBankAccountPage() {
-  return <FormPage config={getModuleConfig("bank-accounts")} />;
+  return <BankAccountsWorkspace initialComposerOpen />;
 }

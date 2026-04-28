@@ -53,11 +53,16 @@ export function AuditTrailWorkspace() {
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
   const [entityFilter, setEntityFilter] = useState("all");
+  const [limit, setLimit] = useState("200");
 
-  const audits = useQuery({
-    queryKey: ["audit-trail-raw"],
+  const audits = useQuery<AuditRecord[]>({
+    queryKey: ["audit-trail-raw", actionFilter, entityFilter, limit],
     queryFn: async () => {
-      const response = await fetch("/api/audit-logs", { cache: "no-store" });
+      const params = new URLSearchParams();
+      if (actionFilter !== "all") params.set("action", actionFilter);
+      if (entityFilter !== "all") params.set("entity_type", entityFilter);
+      params.set("limit", limit);
+      const response = await fetch(`/api/audit-logs?${params.toString()}`, { cache: "no-store" });
       const payload = (await response.json().catch(() => ({}))) as { data?: AuditRecord[]; error?: { message?: string } };
       if (!response.ok || !payload.data) {
         throw new Error(payload.error?.message ?? "Audit trail could not be loaded.");
@@ -66,25 +71,48 @@ export function AuditTrailWorkspace() {
     }
   });
 
-  const records = useMemo(() => {
-    const rows = audits.data ?? [];
+  const records = useMemo<AuditRecord[]>(() => {
+    const rows: AuditRecord[] = audits.data ?? [];
     const lowered = search.trim().toLowerCase();
     return rows.filter((record) => {
-      if (actionFilter !== "all" && record.action !== actionFilter) return false;
-      if (entityFilter !== "all" && record.entity_type !== entityFilter) return false;
       if (!lowered) return true;
       return [record.action, record.entity_type, record.entity_id ?? "", record.user_id ?? "", JSON.stringify(record.new_values ?? {}), JSON.stringify(record.old_values ?? {})]
         .join(" ")
         .toLowerCase()
         .includes(lowered);
     });
-  }, [actionFilter, audits.data, entityFilter, search]);
+  }, [audits.data, search]);
 
   const createCount = useMemo(() => records.filter((record) => record.action === "create").length, [records]);
   const updateCount = useMemo(() => records.filter((record) => record.action === "update").length, [records]);
   const deleteCount = useMemo(() => records.filter((record) => record.action === "delete").length, [records]);
   const recentActors = useMemo(() => new Set(records.map((record) => record.user_id).filter(Boolean)).size, [records]);
-  const entityOptions = useMemo(() => ["all", ...Array.from(new Set((audits.data ?? []).map((record) => record.entity_type))).sort()], [audits.data]);
+  const entityOptions = useMemo<string[]>(() => ["all", ...Array.from(new Set((audits.data ?? []).map((record) => record.entity_type))).sort()], [audits.data]);
+
+  const exportCsv = () => {
+    const escape = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    const lines = [
+      ["created_at", "action", "entity_type", "entity_id", "user_id", "old_values", "new_values"].join(","),
+      ...records.map((record) =>
+        [
+          escape(record.created_at),
+          escape(record.action),
+          escape(record.entity_type),
+          escape(record.entity_id ?? ""),
+          escape(record.user_id ?? ""),
+          escape(renderJson(record.old_values)),
+          escape(renderJson(record.new_values))
+        ].join(",")
+      )
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "quikfinance-audit-trail.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-6">
@@ -102,12 +130,13 @@ export function AuditTrailWorkspace() {
             <p className="text-sm text-muted-foreground">Filter by action and entity family before reviewing sensitive changes or demoing traceability.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={exportCsv}>Export CSV</Button>
             <Button asChild variant="secondary"><Link href="/settings/company">Company settings</Link></Button>
             <Button asChild variant="secondary"><Link href="/templates">Templates</Link></Button>
             <Button asChild variant="secondary"><Link href="/transfers">Transfers</Link></Button>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
+        <CardContent className="grid gap-4 md:grid-cols-4">
           <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search audit trail" />
           <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm">
             <option value="all">All actions</option>
@@ -118,6 +147,11 @@ export function AuditTrailWorkspace() {
           </select>
           <select value={entityFilter} onChange={(event) => setEntityFilter(event.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm">
             {entityOptions.map((option) => <option key={option} value={option}>{option === "all" ? "All entities" : option}</option>)}
+          </select>
+          <select value={limit} onChange={(event) => setLimit(event.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm">
+            <option value="100">Last 100</option>
+            <option value="200">Last 200</option>
+            <option value="500">Last 500</option>
           </select>
         </CardContent>
       </Card>
