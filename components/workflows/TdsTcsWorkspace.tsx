@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ComplianceExceptionsPanel } from "@/components/compliance/ComplianceExceptionsPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -125,6 +126,7 @@ export function TdsTcsWorkspace() {
         <Card><CardHeader><CardTitle>In review</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{summary.review}</CardContent></Card>
         <Card><CardHeader><CardTitle>Filed</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{summary.filed}</CardContent></Card>
       </div>
+      <ComplianceExceptionsPanel title="Review blockers" entityType="tds_tcs_record" detailBasePath="/tds-tcs" />
       {(billCandidates.length || invoiceCandidates.length) ? (
         <div className="grid gap-4 xl:grid-cols-2">
           <Card>

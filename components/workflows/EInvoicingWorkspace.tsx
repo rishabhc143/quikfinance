@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ComplianceExceptionsPanel } from "@/components/compliance/ComplianceExceptionsPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -93,6 +94,7 @@ export function EInvoicingWorkspace() {
         <Card><CardHeader><CardTitle>Generated</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{summary.generated}</CardContent></Card>
         <Card><CardHeader><CardTitle>Failed</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{summary.failed}</CardContent></Card>
       </div>
+      <ComplianceExceptionsPanel title="Submission blockers" entityType="e_invoice_submission" detailBasePath="/e-invoicing" />
       {eligibleInvoices.length ? (
         <Card>
           <CardHeader><CardTitle>Eligible invoices</CardTitle></CardHeader>

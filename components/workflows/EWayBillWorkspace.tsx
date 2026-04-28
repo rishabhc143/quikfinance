@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ComplianceExceptionsPanel } from "@/components/compliance/ComplianceExceptionsPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -99,6 +100,7 @@ export function EWayBillWorkspace() {
         <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">Open readiness</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{metrics.expiring}</CardContent></Card>
         <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">Movement taxable value</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{formatMoney(metrics.taxable)}</CardContent></Card>
       </div>
+      <ComplianceExceptionsPanel title="Transport blockers" entityType="e_way_bill" detailBasePath="/e-way-bill" />
 
       <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
         <div>
