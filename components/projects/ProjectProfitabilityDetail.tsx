@@ -23,6 +23,14 @@ const expenseColumns = [
   { key: "status", label: "Status", kind: "status" as const }
 ];
 
+const invoiceColumns = [
+  { key: "invoice_number", label: "Invoice" },
+  { key: "issue_date", label: "Issue date", kind: "date" as const },
+  { key: "status", label: "Status", kind: "status" as const },
+  { key: "total", label: "Total", kind: "money" as const, align: "right" as const },
+  { key: "entry_count", label: "Time entries", align: "right" as const }
+];
+
 type ProjectRecord = { id: string; name: string; budget_amount?: number; status?: string; billing_method?: string; customer_id?: string | null };
 type AuditRow = { id: string; action?: string; entity_type?: string; entity_id?: string | null; created_at?: string; new_values?: Record<string, unknown> | null };
 
@@ -30,6 +38,7 @@ export function ProjectProfitabilityDetail({ id }: { id: string }) {
   const [project, setProject] = useState<ProjectRecord | null>(null);
   const [timeEntries, setTimeEntries] = useState<TableRow[]>([]);
   const [expenses, setExpenses] = useState<TableRow[]>([]);
+  const [invoiceRows, setInvoiceRows] = useState<TableRow[]>([]);
   const [auditRows, setAuditRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -38,16 +47,18 @@ export function ProjectProfitabilityDetail({ id }: { id: string }) {
     const load = async () => {
       setLoading(true);
       try {
-        const [projectRes, timeRes, expenseRes, auditRes] = await Promise.all([
+        const [projectRes, timeRes, expenseRes, invoiceRes, auditRes] = await Promise.all([
           fetch(`/api/v1/projects/${id}`, { signal: controller.signal, cache: "no-store" }),
           fetch("/api/v1/time-entries", { signal: controller.signal, cache: "no-store" }),
           fetch("/api/v1/expenses", { signal: controller.signal, cache: "no-store" }),
+          fetch("/api/v1/invoices", { signal: controller.signal, cache: "no-store" }),
           fetch("/api/audit-logs", { signal: controller.signal, cache: "no-store" })
         ]);
-        const [projectJson, timeJson, expenseJson, auditJson] = await Promise.all([
+        const [projectJson, timeJson, expenseJson, invoiceJson, auditJson] = await Promise.all([
           projectRes.json().catch(() => ({})),
           timeRes.json().catch(() => ({ data: [] })),
           expenseRes.json().catch(() => ({ data: [] })),
+          invoiceRes.json().catch(() => ({ data: [] })),
           auditRes.json().catch(() => ({ data: [] }))
         ]);
         setProject(projectJson.data ?? null);
@@ -57,8 +68,21 @@ export function ProjectProfitabilityDetail({ id }: { id: string }) {
           const payload = typeof row.new_values === "object" && row.new_values !== null ? row.new_values as Record<string, unknown> : null;
           return String(payload?.project_id ?? "") === id && String(row.entity_type ?? "") === "invoice";
         });
+        const invoiceIds = new Set(filteredAudit.map((row: Record<string, unknown>) => String(row.entity_id ?? "")));
+        const invoiceEntryCount = new Map<string, number>();
+        for (const row of filteredAudit) {
+          const payload = typeof row.new_values === "object" && row.new_values !== null ? row.new_values as Record<string, unknown> : null;
+          invoiceEntryCount.set(String(row.entity_id ?? ""), Array.isArray(payload?.entry_ids) ? payload.entry_ids.length : 0);
+        }
+        const linkedInvoices = (Array.isArray(invoiceJson.data) ? invoiceJson.data : [])
+          .filter((row: Record<string, unknown>) => invoiceIds.has(String(row.id ?? "")))
+          .map((row: Record<string, unknown>) => ({
+            ...row,
+            entry_count: invoiceEntryCount.get(String(row.id ?? "")) ?? 0
+          }));
         setTimeEntries(filteredTime);
         setExpenses(filteredExpenses);
+        setInvoiceRows(linkedInvoices);
         setAuditRows(filteredAudit as AuditRow[]);
       } finally {
         setLoading(false);
@@ -109,6 +133,7 @@ export function ProjectProfitabilityDetail({ id }: { id: string }) {
 
       <DataTable columns={timeColumns} rows={timeEntries} title="Project Time Entries" getRowHref={(row) => `/time-tracking/${row.id}`} />
       <DataTable columns={expenseColumns} rows={expenses} title="Project Expenses" getRowHref={(row) => `/expenses/${row.id}`} />
+      <DataTable columns={invoiceColumns} rows={invoiceRows} title="Project Invoices" getRowHref={(row) => `/invoices/${row.id}`} />
 
       <Card>
         <CardHeader><CardTitle>Invoice allocation history</CardTitle></CardHeader>

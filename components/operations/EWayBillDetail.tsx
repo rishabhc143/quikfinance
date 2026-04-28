@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,29 +28,50 @@ type EWayBillRecord = {
 export function EWayBillDetail({ id }: { id: string }) {
   const [record, setRecord] = useState<EWayBillRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState<string | null>(null);
+
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/v1/e-way-bills/${id}`, { signal });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error?.message ?? "E-Way Bill could not be loaded.");
+      setRecord(json.data ?? null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "E-Way Bill could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
     const controller = new AbortController();
-    const load = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/v1/e-way-bills/${id}`, { signal: controller.signal });
-        const json = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(json.error?.message ?? "E-Way Bill could not be loaded.");
-        setRecord(json.data ?? null);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "E-Way Bill could not be loaded.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
+    void load(controller.signal);
     return () => controller.abort();
-  }, [id]);
+  }, [load]);
 
   if (loading || !record) {
     return <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">Loading E-Way Bill...</div>;
   }
+
+  const updateStatus = async (status: string) => {
+    setWorking(status);
+    try {
+      const response = await fetch(`/api/v1/e-way-bills/${id}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error?.message ?? "E-Way Bill status could not be updated.");
+      toast.success(`E-Way Bill marked ${status}.`);
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "E-Way Bill status could not be updated.");
+    } finally {
+      setWorking(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -75,6 +96,14 @@ export function EWayBillDetail({ id }: { id: string }) {
           {record.dispatch_id ? <div className="flex justify-between"><span className="text-muted-foreground">Dispatch</span><Link href={`/delivery-dispatch/${record.dispatch_id}`} className="text-primary underline underline-offset-2">Open</Link></div> : null}
           {record.invoice_id ? <div className="flex justify-between"><span className="text-muted-foreground">Invoice</span><Link href={`/invoices/${record.invoice_id}`} className="text-primary underline underline-offset-2">Open</Link></div> : null}
           {record.notes ? <div className="md:col-span-2"><span className="text-muted-foreground">Notes</span><p className="mt-1">{record.notes}</p></div> : null}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Compliance actions</CardTitle></CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => updateStatus("generated")} disabled={working !== null || record.status === "generated"}>{working === "generated" ? "Updating..." : "Mark generated"}</Button>
+          <Button variant="secondary" onClick={() => updateStatus("expired")} disabled={working !== null || record.status === "expired"}>{working === "expired" ? "Updating..." : "Mark expired"}</Button>
+          <Button variant="destructive" onClick={() => updateStatus("cancelled")} disabled={working !== null || record.status === "cancelled"}>{working === "cancelled" ? "Updating..." : "Mark cancelled"}</Button>
         </CardContent>
       </Card>
     </div>

@@ -64,8 +64,8 @@ export function EInvoicingDetail({ id }: { id: string }) {
       if (status === "failed") {
         payload.error_message = record.error_message || "Provider validation failed during submission.";
       }
-      const response = await fetch(`/api/v1/e-invoicing/${id}`, {
-        method: "PUT",
+      const response = await fetch(`/api/v1/e-invoicing/${id}/status`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
@@ -108,6 +108,7 @@ export function EInvoicingDetail({ id }: { id: string }) {
           <Button variant="secondary" onClick={() => updateStatus("submitted")} disabled={working !== null || record.status === "submitted"}>{working === "submitted" ? "Updating..." : "Mark submitted"}</Button>
           <Button onClick={() => updateStatus("generated")} disabled={working !== null || record.status === "generated"}>{working === "generated" ? "Updating..." : "Mark generated"}</Button>
           <Button variant="destructive" onClick={() => updateStatus("failed")} disabled={working !== null || record.status === "failed"}>{working === "failed" ? "Updating..." : "Mark failed"}</Button>
+          <Button variant="secondary" onClick={() => updateStatus("cancelled")} disabled={working !== null || record.status === "cancelled"}>{working === "cancelled" ? "Updating..." : "Mark cancelled"}</Button>
         </CardContent>
       </Card>
     </div>

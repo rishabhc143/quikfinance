@@ -55,8 +55,8 @@ export function TdsTcsDetail({ id }: { id: string }) {
   const updateStatus = async (status: string) => {
     setWorking(status);
     try {
-      const response = await fetch(`/api/v1/tds-tcs/${id}`, {
-        method: "PUT",
+      const response = await fetch(`/api/v1/tds-tcs/${id}/status`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status })
       });
@@ -96,6 +96,7 @@ export function TdsTcsDetail({ id }: { id: string }) {
       <Card>
         <CardHeader><CardTitle>Tax actions</CardTitle></CardHeader>
         <CardContent className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => updateStatus("review")} disabled={working !== null || record.status === "review"}>{working === "review" ? "Updating..." : "Mark review"}</Button>
           <Button variant="secondary" onClick={() => updateStatus("posted")} disabled={working !== null || record.status === "posted"}>{working === "posted" ? "Updating..." : "Mark posted"}</Button>
           <Button onClick={() => updateStatus("filed")} disabled={working !== null || record.status === "filed"}>{working === "filed" ? "Updating..." : "Mark filed"}</Button>
         </CardContent>
