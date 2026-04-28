@@ -17,12 +17,6 @@ function toMoney(value: number) {
   return Number(value.toFixed(2));
 }
 
-function parsePaging(url: URL) {
-  const page = Math.max(Number(url.searchParams.get("page") ?? "1"), 1);
-  const perPage = Math.min(Math.max(Number(url.searchParams.get("per_page") ?? "25"), 1), 100);
-  return { page, perPage, from: (page - 1) * perPage, to: page * perPage - 1 };
-}
-
 async function parseJson(request: Request) {
   try {
     return (await request.json()) as Record<string, unknown>;
@@ -61,12 +55,6 @@ function validateLines(lines: JournalLine[]) {
   return { lines: filtered, debits, credits };
 }
 
-async function nextEntryNumber(context: ApiContext) {
-  const { count, error } = await context.supabase.from("journal_entries").select("id", { count: "exact", head: true }).eq("org_id", context.orgId);
-  if (error) throw new Error(error.message);
-  return `JE-${String((count ?? 0) + 1).padStart(4, "0")}`;
-}
-
 async function applyBalanceDelta(context: ApiContext, lines: JournalLine[]) {
   const byAccount = new Map<string, number>();
   for (const line of lines) {
@@ -83,24 +71,8 @@ async function applyBalanceDelta(context: ApiContext, lines: JournalLine[]) {
   }
 }
 
-async function loadLineTotals(context: ApiContext, journalEntryIds: string[]) {
-  if (!journalEntryIds.length) return new Map<string, { debits: number; credits: number }>();
-  const { data, error } = await context.supabase
-    .from("journal_entry_lines")
-    .select("journal_entry_id, debit, credit")
-    .eq("org_id", context.orgId)
-    .in("journal_entry_id", journalEntryIds);
-  if (error) throw new Error(error.message);
-
-  const totals = new Map<string, { debits: number; credits: number }>();
-  for (const row of data ?? []) {
-    const key = String(row.journal_entry_id);
-    const current = totals.get(key) ?? { debits: 0, credits: 0 };
-    current.debits = toMoney(current.debits + Number(row.debit ?? 0));
-    current.credits = toMoney(current.credits + Number(row.credit ?? 0));
-    totals.set(key, current);
-  }
-  return totals;
+async function loadEntry(auth: { context: ApiContext }, id: string) {
+  return auth.context.supabase.from("journal_entries").select("*").eq("org_id", auth.context.orgId).eq("id", id).single();
 }
 
 async function audit(context: ApiContext, action: string, entityId: string, values: Json) {
@@ -114,41 +86,60 @@ async function audit(context: ApiContext, action: string, entityId: string, valu
   });
 }
 
-export async function GET(request: Request) {
+export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const auth = await requireApiContext();
   if (!auth.ok) return fail(auth.status, { code: auth.code, message: auth.message });
 
-  const url = new URL(request.url);
-  const { page, perPage, from, to } = parsePaging(url);
-  const search = url.searchParams.get("search");
+  const { data: journalEntry, error } = await loadEntry(auth, params.id);
+  if (error || !journalEntry) return fail(404, { code: "NOT_FOUND", message: "Journal entry not found." });
 
-  let query = auth.context.supabase
-    .from("journal_entries")
-    .select("id, entry_number, entry_date, status, memo, source_type, source_id, created_at, updated_at", { count: "exact" })
-    .eq("org_id", auth.context.orgId);
+  const { data: lines, error: lineError } = await auth.context.supabase
+    .from("journal_entry_lines")
+    .select("id, account_id, description, debit, credit, display_order, accounts:account_id(code, name)")
+    .eq("org_id", auth.context.orgId)
+    .eq("journal_entry_id", params.id)
+    .order("display_order", { ascending: true });
+  if (lineError) return fail(400, { code: "LINES_FAILED", message: lineError.message });
 
-  if (search) {
-    query = query.or(`entry_number.ilike.%${search}%,memo.ilike.%${search}%`);
-  }
+  const debits = toMoney((lines ?? []).reduce((sum, line) => sum + Number(line.debit ?? 0), 0));
+  const credits = toMoney((lines ?? []).reduce((sum, line) => sum + Number(line.credit ?? 0), 0));
 
-  const { data, error, count } = await query.order("entry_date", { ascending: false }).range(from, to);
-  if (error) return fail(400, { code: "LIST_FAILED", message: error.message });
-
-  const totals = await loadLineTotals(auth.context, (data ?? []).map((row) => String(row.id)));
-  const rows = (data ?? []).map((row) => {
-    const total = totals.get(String(row.id)) ?? { debits: 0, credits: 0 };
-    return { ...row, debits: total.debits, credits: total.credits };
+  return ok({
+    ...journalEntry,
+    debits,
+    credits,
+    line_items: (lines ?? []).map((line) => {
+      const accounts = line.accounts as { name?: string | null; code?: string | null } | Array<{ name?: string | null; code?: string | null }> | null;
+      const accountRow = Array.isArray(accounts) ? accounts[0] : accounts;
+      return {
+        id: line.id,
+        account_id: line.account_id,
+        description: line.description,
+        debit: Number(line.debit ?? 0),
+        credit: Number(line.credit ?? 0),
+        account_name: accountRow?.name ?? null,
+        account_code: accountRow?.code ?? null
+      };
+    })
   });
-
-  return ok(rows, { total: count ?? 0, page, per_page: perPage });
 }
 
-export async function POST(request: Request) {
+export async function PUT(request: Request, { params }: { params: { id: string } }) {
   const auth = await requireApiContext();
   if (!auth.ok) return fail(auth.status, { code: auth.code, message: auth.message });
 
+  const { data: existing, error: existingError } = await loadEntry(auth, params.id);
+  if (existingError || !existing) return fail(404, { code: "NOT_FOUND", message: "Journal entry not found." });
+  if (String(existing.status) === "posted") {
+    return fail(409, { code: "EDIT_NOT_ALLOWED", message: "Posted journal entries cannot be edited." });
+  }
+  if (existing.source_type && existing.source_type !== "manual") {
+    return fail(409, { code: "EDIT_NOT_ALLOWED", message: "System-generated journal entries cannot be edited here." });
+  }
+
   const json = await parseJson(request);
-  const parsed = journalEntrySchema.safeParse(json);
+  const merged = { ...existing, ...json };
+  const parsed = journalEntrySchema.safeParse(merged);
   if (!parsed.success) {
     return fail(422, { code: "VALIDATION_FAILED", message: "The journal entry payload is invalid.", details: parsed.error.flatten() });
   }
@@ -158,33 +149,32 @@ export async function POST(request: Request) {
 
   try {
     const { lines, debits, credits } = validateLines(normalizeLines(json.line_items));
-    const entryNumber = parsed.data.entry_number?.trim() || (await nextEntryNumber(auth.context));
     const status = parsed.data.status;
     const isPosted = status === "posted";
     const isApproved = status === "approved" || status === "posted";
 
     const { data: journalEntry, error } = await auth.context.supabase
       .from("journal_entries")
-      .insert({
-        org_id: auth.context.orgId,
-        entry_number: entryNumber,
+      .update({
+        entry_number: parsed.data.entry_number?.trim() || existing.entry_number,
         entry_date: parsed.data.entry_date,
         status,
         memo: parsed.data.memo ?? null,
-        source_type: parsed.data.source_type ?? "manual",
-        source_id: parsed.data.source_id ?? null,
-        created_by: auth.context.userId,
+        source_type: parsed.data.source_type ?? existing.source_type ?? "manual",
+        source_id: parsed.data.source_id ?? existing.source_id ?? null,
         approved_by: isApproved ? auth.context.userId : null,
         posted_by: isPosted ? auth.context.userId : null,
         approved_at: isApproved ? new Date().toISOString() : null,
         posted_at: isPosted ? new Date().toISOString() : null
       })
+      .eq("org_id", auth.context.orgId)
+      .eq("id", params.id)
       .select("*")
       .single();
+    if (error || !journalEntry) throw new Error(error?.message ?? "Journal entry could not be updated.");
 
-    if (error || !journalEntry) {
-      throw new Error(error?.message ?? "Journal entry could not be created.");
-    }
+    const { error: deleteError } = await auth.context.supabase.from("journal_entry_lines").delete().eq("org_id", auth.context.orgId).eq("journal_entry_id", params.id);
+    if (deleteError) throw new Error(deleteError.message);
 
     const { error: lineError } = await auth.context.supabase.from("journal_entry_lines").insert(
       lines.map((line, index) => ({
@@ -203,9 +193,32 @@ export async function POST(request: Request) {
       await applyBalanceDelta(auth.context, lines);
     }
 
-    await audit(auth.context, "create", String(journalEntry.id), { ...parsed.data, line_items: lines, debits, credits } as Json);
-    return ok({ ...journalEntry, debits, credits }, undefined, { status: 201 });
+    await audit(auth.context, "update", params.id, { ...parsed.data, line_items: lines, debits, credits } as Json);
+    return ok({ ...journalEntry, debits, credits });
   } catch (error) {
-    return fail(400, { code: "CREATE_FAILED", message: error instanceof Error ? error.message : "Journal entry could not be created." });
+    return fail(400, { code: "UPDATE_FAILED", message: error instanceof Error ? error.message : "Journal entry could not be updated." });
   }
+}
+
+export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
+  const auth = await requireApiContext();
+  if (!auth.ok) return fail(auth.status, { code: auth.code, message: auth.message });
+
+  const { data: existing, error: existingError } = await loadEntry(auth, params.id);
+  if (existingError || !existing) return fail(404, { code: "NOT_FOUND", message: "Journal entry not found." });
+  if (String(existing.status) === "posted") {
+    return fail(409, { code: "DELETE_NOT_ALLOWED", message: "Posted journal entries cannot be deleted." });
+  }
+  if (existing.source_type && existing.source_type !== "manual") {
+    return fail(409, { code: "DELETE_NOT_ALLOWED", message: "System-generated journal entries cannot be deleted here." });
+  }
+
+  const lockResponse = await assertPeriodUnlocked(auth.context, String(existing.entry_date), "journals");
+  if (lockResponse) return lockResponse;
+
+  const { error } = await auth.context.supabase.from("journal_entries").delete().eq("org_id", auth.context.orgId).eq("id", params.id);
+  if (error) return fail(400, { code: "DELETE_FAILED", message: error.message });
+
+  await audit(auth.context, "delete", params.id, { id: params.id } as Json);
+  return ok({ id: params.id });
 }

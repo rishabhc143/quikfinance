@@ -1,6 +1,5 @@
-import { ModulePage } from "@/components/shared/ModulePage";
-import { getModuleConfig } from "@/lib/modules";
+import { AdjustmentsWorkspace } from "@/components/workflows/AdjustmentsWorkspace";
 
 export default function VendorCreditsPage() {
-  return <ModulePage config={getModuleConfig("vendor-credits")} />;
+  return <AdjustmentsWorkspace variant="vendor-credit" />;
 }

@@ -1,6 +1,5 @@
-import { ModulePage } from "@/components/shared/ModulePage";
-import { getModuleConfig } from "@/lib/modules";
+import { JournalEntriesWorkspace } from "@/components/workflows/JournalEntriesWorkspace";
 
 export default function JournalEntriesPage() {
-  return <ModulePage config={getModuleConfig("journal-entries")} />;
+  return <JournalEntriesWorkspace />;
 }

@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { redirect } from "next/navigation";
 
 export default function NewImportPage() {
-  return <FormPage config={getModuleConfig("imports")} />;
+  redirect("/imports");
 }

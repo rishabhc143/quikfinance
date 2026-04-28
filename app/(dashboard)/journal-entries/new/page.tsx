@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { JournalEntryEditor } from "@/components/accounting/JournalEntryEditor";
 
 export default function NewJournalEntryPage() {
-  return <FormPage config={getModuleConfig("journal-entries")} />;
+  return <JournalEntryEditor />;
 }

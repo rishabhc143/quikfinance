@@ -1,6 +1,5 @@
-import { DetailPage } from "@/components/shared/DetailPage";
-import { getModuleConfig } from "@/lib/modules";
+import { DocumentDetail } from "@/components/transactions/DocumentDetail";
 
 export default function CreditNoteDetailPage({ params }: { params: { id: string } }) {
-  return <DetailPage config={getModuleConfig("credit-notes")} id={params.id} />;
+  return <DocumentDetail kind="credit-note" id={params.id} />;
 }

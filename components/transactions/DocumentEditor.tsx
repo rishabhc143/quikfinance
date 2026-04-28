@@ -21,6 +21,7 @@ type TemplateSettings = {
   invoice_note_template?: string;
   quotation_note_template?: string;
 };
+type RelatedDocumentOption = { id: string; number: string };
 
 type LineItem = {
   item_id: string | null;
@@ -32,7 +33,7 @@ type LineItem = {
   gst_rate: number;
 };
 
-type DocumentKind = "invoice" | "bill" | "quotation" | "sales-order" | "purchase-order";
+type DocumentKind = "invoice" | "bill" | "quotation" | "sales-order" | "purchase-order" | "credit-note" | "vendor-credit";
 
 function emptyLine(): LineItem {
   return { item_id: null, description: "", quantity: 1, rate: 0, discount: 0, tax_rate_id: null, gst_rate: 0 };
@@ -47,6 +48,8 @@ function kindLabel(kind: DocumentKind) {
   if (kind === "bill") return "Bill";
   if (kind === "sales-order") return "Sales order";
   if (kind === "purchase-order") return "Purchase order";
+  if (kind === "credit-note") return "Credit note";
+  if (kind === "vendor-credit") return "Vendor credit";
   return "Quotation";
 }
 
@@ -60,18 +63,23 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
   const isQuotation = kind === "quotation";
   const isSalesOrder = kind === "sales-order";
   const isPurchaseOrder = kind === "purchase-order";
+  const isCreditNote = kind === "credit-note";
+  const isVendorCredit = kind === "vendor-credit";
   const label = kindLabel(kind);
-  const apiBase = isInvoice ? "/api/v1/invoices" : isBill ? "/api/v1/bills" : isQuotation ? "/api/v1/quotations" : isSalesOrder ? "/api/v1/sales-orders" : "/api/v1/purchase-orders";
-  const contactsApi = isBill || isPurchaseOrder ? "/api/v1/vendors" : "/api/v1/customers";
-  const listPath = isInvoice ? "/invoices" : isBill ? "/bills" : isQuotation ? "/quotations" : isSalesOrder ? "/sales-orders" : "/purchase-orders";
+  const apiBase = isInvoice ? "/api/v1/invoices" : isBill ? "/api/v1/bills" : isQuotation ? "/api/v1/quotations" : isSalesOrder ? "/api/v1/sales-orders" : isPurchaseOrder ? "/api/v1/purchase-orders" : isCreditNote ? "/api/v1/credit-notes" : "/api/v1/vendor-credits";
+  const contactsApi = isBill || isPurchaseOrder || isVendorCredit ? "/api/v1/vendors" : "/api/v1/customers";
+  const relatedApi = isCreditNote ? "/api/v1/invoices" : isVendorCredit ? "/api/v1/bills" : null;
+  const listPath = isInvoice ? "/invoices" : isBill ? "/bills" : isQuotation ? "/quotations" : isSalesOrder ? "/sales-orders" : isPurchaseOrder ? "/purchase-orders" : isCreditNote ? "/credit-notes" : "/vendor-credits";
 
   const [contacts, setContacts] = useState<ContactOption[]>([]);
   const [items, setItems] = useState<ItemOption[]>([]);
   const [taxes, setTaxes] = useState<TaxOption[]>([]);
+  const [relatedDocuments, setRelatedDocuments] = useState<RelatedDocumentOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const [contactId, setContactId] = useState("");
+  const [relatedDocumentId, setRelatedDocumentId] = useState("");
   const [issueDate, setIssueDate] = useState(todayISO());
   const [dueDate, setDueDate] = useState(todayISO());
   const [status, setStatus] = useState("draft");
@@ -97,26 +105,38 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
     const boot = async () => {
       setLoading(true);
       try {
-        const [contactRes, itemRes, taxRes, templateRes] = await Promise.all([
+        const [contactRes, itemRes, taxRes, templateRes, relatedRes] = await Promise.all([
           fetch(contactsApi, { signal: controller.signal }),
           fetch("/api/v1/inventory", { signal: controller.signal }),
           fetch("/api/v1/taxes", { signal: controller.signal }),
-          isBill || isSalesOrder || isPurchaseOrder ? Promise.resolve(new Response(JSON.stringify({ data: {} }))) : fetch("/api/v1/templates/settings", { signal: controller.signal })
+          isBill || isSalesOrder || isPurchaseOrder || isCreditNote || isVendorCredit ? Promise.resolve(new Response(JSON.stringify({ data: {} }))) : fetch("/api/v1/templates/settings", { signal: controller.signal }),
+          relatedApi ? fetch(relatedApi, { signal: controller.signal }) : Promise.resolve(new Response(JSON.stringify({ data: [] })))
         ]);
 
-        const [contactJson, itemJson, taxJson, templateJson] = await Promise.all([
+        const [contactJson, itemJson, taxJson, templateJson, relatedJson] = await Promise.all([
           contactRes.json().catch(() => ({ data: [] })),
           itemRes.json().catch(() => ({ data: [] })),
           taxRes.json().catch(() => ({ data: [] })),
-          templateRes.json().catch(() => ({ data: {} }))
+          templateRes.json().catch(() => ({ data: {} })),
+          relatedRes.json().catch(() => ({ data: [] }))
         ]);
 
         setContacts(Array.isArray(contactJson.data) ? contactJson.data : []);
         setItems(Array.isArray(itemJson.data) ? itemJson.data : []);
         setTaxes(Array.isArray(taxJson.data) ? taxJson.data : []);
+        setRelatedDocuments(
+          Array.isArray(relatedJson.data)
+            ? relatedJson.data
+                .map((entry: Record<string, unknown>) => ({
+                  id: String(entry.id ?? ""),
+                  number: String(entry.invoice_number ?? entry.bill_number ?? entry.id ?? "")
+                }))
+                .filter((entry: RelatedDocumentOption) => entry.id.length > 0 && entry.number.length > 0)
+            : []
+        );
 
         const templateSettings = (templateJson.data ?? {}) as TemplateSettings;
-        if (!loadId && !isBill && !isSalesOrder && !isPurchaseOrder) {
+        if (!loadId && !isBill && !isSalesOrder && !isPurchaseOrder && !isCreditNote && !isVendorCredit) {
           const defaultTemplate = isInvoice ? templateSettings.default_invoice_template : templateSettings.default_quotation_template;
           const defaultTerms = isInvoice ? templateSettings.invoice_note_template : templateSettings.quotation_note_template;
           setTemplateType(defaultTemplate ?? "classic");
@@ -131,6 +151,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
           const payload = await response.json();
           const record = payload.data ?? {};
           setContactId(String(record.contact_id ?? ""));
+          setRelatedDocumentId(String(record.invoice_id ?? record.bill_id ?? ""));
           setIssueDate(String(record.issue_date ?? todayISO()));
           setDueDate(String(record.due_date ?? todayISO()));
           setStatus(duplicateId ? "draft" : String(record.status ?? "draft"));
@@ -149,22 +170,35 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
             duplicateId
               ? ""
               : String(
-                  isInvoice ? record.invoice_number ?? "" : isBill ? record.bill_number ?? "" : isQuotation ? record.quotation_number ?? "" : isSalesOrder ? record.sales_order_number ?? "" : record.purchase_order_number ?? ""
+                  isInvoice
+                    ? record.invoice_number ?? ""
+                    : isBill
+                      ? record.bill_number ?? ""
+                      : isQuotation
+                        ? record.quotation_number ?? ""
+                        : isSalesOrder
+                          ? record.sales_order_number ?? ""
+                          : isPurchaseOrder
+                            ? record.purchase_order_number ?? ""
+                            : isCreditNote
+                              ? record.credit_note_number ?? ""
+                              : record.vendor_credit_number ?? ""
                 )
           );
           setRoundOff(Number(record.round_off ?? 0));
           setTdsAmount(Number(record.tds_amount ?? 0));
-          const nextLines = Array.isArray(record.line_items) && record.line_items.length
-            ? record.line_items.map((line: Record<string, unknown>) => ({
-                item_id: typeof line.item_id === "string" ? line.item_id : null,
-                description: String(line.description ?? ""),
-                quantity: Number(line.quantity ?? 1),
-                rate: Number(line.rate ?? 0),
-                discount: Number(line.discount ?? 0),
-                tax_rate_id: typeof line.tax_rate_id === "string" ? line.tax_rate_id : null,
-                gst_rate: 0
-              }))
-            : [emptyLine()];
+          const nextLines =
+            Array.isArray(record.line_items) && record.line_items.length
+              ? record.line_items.map((line: Record<string, unknown>) => ({
+                  item_id: typeof line.item_id === "string" ? line.item_id : null,
+                  description: String(line.description ?? ""),
+                  quantity: Number(line.quantity ?? 1),
+                  rate: Number(line.rate ?? 0),
+                  discount: Number(line.discount ?? 0),
+                  tax_rate_id: typeof line.tax_rate_id === "string" ? line.tax_rate_id : null,
+                  gst_rate: typeof line.gst_rate === "number" ? Number(line.gst_rate) : 0
+                }))
+              : [emptyLine()];
           setLines(nextLines);
         }
       } catch (error) {
@@ -176,7 +210,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
 
     void boot();
     return () => controller.abort();
-  }, [apiBase, contactsApi, duplicateId, isBill, isInvoice, isPurchaseOrder, isQuotation, isSalesOrder, loadId]);
+  }, [apiBase, contactsApi, duplicateId, isBill, isCreditNote, isInvoice, isPurchaseOrder, isQuotation, isSalesOrder, isVendorCredit, loadId, relatedApi]);
 
   const totals = useMemo(() => {
     const subtotal = lines.reduce((sum, line) => sum + line.quantity * line.rate, 0);
@@ -203,7 +237,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
     updateLine(index, {
       item_id: itemId || null,
       description: item?.name ?? "",
-      rate: Number(isBill || isPurchaseOrder ? item?.purchase_price ?? 0 : item?.sales_price ?? 0),
+      rate: Number(isBill || isPurchaseOrder || isVendorCredit ? item?.purchase_price ?? 0 : item?.sales_price ?? 0),
       gst_rate: Number(item?.gst_rate ?? 0),
       tax_rate_id: tax?.id ?? null
     });
@@ -211,7 +245,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
 
   const submit = async () => {
     if (!contactId) {
-      toast.error(`Select a ${isBill || isPurchaseOrder ? "vendor" : "customer"}.`);
+      toast.error(`Select a ${isBill || isPurchaseOrder || isVendorCredit ? "vendor" : "customer"}.`);
       return;
     }
 
@@ -234,7 +268,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
         discount_total: totals.discount_total,
         tax_total: totals.tax_total,
         total: totals.total,
-        place_of_supply: placeOfSupply || null,
+        place_of_supply: !isPurchaseOrder && !isCreditNote && !isVendorCredit ? placeOfSupply || null : undefined,
         notes: notes || null,
         line_items: validLines.map((line) => ({
           item_id: line.item_id,
@@ -263,8 +297,14 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
         payload.template_type = templateType;
       } else if (isSalesOrder) {
         payload.sales_order_number = documentNumber || undefined;
-      } else {
+      } else if (isPurchaseOrder) {
         payload.purchase_order_number = documentNumber || undefined;
+      } else if (isCreditNote) {
+        payload.credit_note_number = documentNumber || undefined;
+        payload.invoice_id = relatedDocumentId || null;
+      } else {
+        payload.vendor_credit_number = documentNumber || undefined;
+        payload.bill_id = relatedDocumentId || null;
       }
 
       const response = await fetch(editId ? `${apiBase}/${editId}` : apiBase, {
@@ -299,32 +339,41 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label>{isBill || isPurchaseOrder ? "Vendor" : "Customer"}</Label>
+            <Label>{isBill || isPurchaseOrder || isVendorCredit ? "Vendor" : "Customer"}</Label>
             <select value={contactId} onChange={(event) => setContactId(event.target.value)} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
               <option value="">Select</option>
               {contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.display_name}</option>)}
             </select>
             <div className="mt-2 flex flex-wrap gap-3 text-xs">
-              <Link href={isBill || isPurchaseOrder ? "/vendors/new" : "/customers/new"} className="text-primary underline underline-offset-2">
-                {isBill || isPurchaseOrder ? "New vendor" : "New customer"}
+              <Link href={isBill || isPurchaseOrder || isVendorCredit ? "/vendors/new" : "/customers/new"} className="text-primary underline underline-offset-2">
+                {isBill || isPurchaseOrder || isVendorCredit ? "New vendor" : "New customer"}
               </Link>
               {contactId ? (
-                <Link href={`${isBill || isPurchaseOrder ? "/vendors" : "/customers"}/${contactId}`} className="text-muted-foreground underline underline-offset-2">
-                  {isBill || isPurchaseOrder ? "Open vendor" : "Open customer"}
+                <Link href={`${isBill || isPurchaseOrder || isVendorCredit ? "/vendors" : "/customers"}/${contactId}`} className="text-muted-foreground underline underline-offset-2">
+                  {isBill || isPurchaseOrder || isVendorCredit ? "Open vendor" : "Open customer"}
                 </Link>
               ) : null}
             </div>
           </div>
           <div>
-            <Label>{isInvoice ? "Invoice number" : isBill ? "Bill number" : isQuotation ? "Quotation number" : isSalesOrder ? "Sales order number" : "Purchase order number"}</Label>
+            <Label>{isInvoice ? "Invoice number" : isBill ? "Bill number" : isQuotation ? "Quotation number" : isSalesOrder ? "Sales order number" : isPurchaseOrder ? "Purchase order number" : isCreditNote ? "Credit note number" : "Vendor credit number"}</Label>
             <Input value={documentNumber} onChange={(event) => setDocumentNumber(event.target.value)} className="mt-2" />
           </div>
+          {relatedApi ? (
+            <div>
+              <Label>{isCreditNote ? "Original invoice" : "Related bill"}</Label>
+              <select value={relatedDocumentId} onChange={(event) => setRelatedDocumentId(event.target.value)} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
+                <option value="">{isCreditNote ? "Optional invoice" : "Optional bill"}</option>
+                {relatedDocuments.map((entry) => <option key={entry.id} value={entry.id}>{entry.number}</option>)}
+              </select>
+            </div>
+          ) : null}
           <div>
             <Label>{isQuotation ? "Quotation date" : isSalesOrder ? "Order date" : isPurchaseOrder ? "PO date" : "Issue date"}</Label>
             <Input type="date" value={issueDate} onChange={(event) => setIssueDate(event.target.value)} className="mt-2" />
           </div>
           <div>
-            <Label>{isQuotation ? "Expiry date" : isSalesOrder || isPurchaseOrder ? "Expected date" : "Due date"}</Label>
+            <Label>{isQuotation ? "Expiry date" : isSalesOrder || isPurchaseOrder ? "Expected date" : isCreditNote || isVendorCredit ? "Apply by" : "Due date"}</Label>
             <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className="mt-2" />
           </div>
           <div>
@@ -338,10 +387,14 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
                     ? ["draft", "sent", "accepted"]
                     : isSalesOrder
                       ? ["draft", "confirmed", "fulfilled", "cancelled"]
-                      : ["draft", "approved", "received", "cancelled"]
-               ).map((option) => <option key={option} value={option}>{option}</option>)}
-             </select>
-           </div>
+                      : isPurchaseOrder
+                        ? ["draft", "approved", "received", "cancelled"]
+                        : isCreditNote
+                          ? ["draft", "issued", "applied", "void"]
+                          : ["draft", "received", "applied", "void"]
+              ).map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+          </div>
           <div>
             <Label>Currency</Label>
             <select value={currency} onChange={(event) => setCurrency(event.target.value)} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
@@ -349,7 +402,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
               <option value="USD">USD</option>
             </select>
           </div>
-          {!isPurchaseOrder ? (
+          {!isPurchaseOrder && !isCreditNote && !isVendorCredit ? (
             <div>
               <Label>Place of supply</Label>
               <Input value={placeOfSupply} onChange={(event) => setPlaceOfSupply(event.target.value)} className="mt-2" placeholder="27" />
@@ -366,7 +419,7 @@ export function DocumentEditor({ kind }: { kind: DocumentKind }) {
               <Input type="number" step="0.01" value={tdsAmount} onChange={(event) => setTdsAmount(Number(event.target.value || 0))} className="mt-2" />
             </div>
           ) : null}
-          {!isBill && !isSalesOrder && !isPurchaseOrder ? (
+          {!isBill && !isSalesOrder && !isPurchaseOrder && !isCreditNote && !isVendorCredit ? (
             <div>
               <Label>Template</Label>
               <select value={templateType} onChange={(event) => setTemplateType(event.target.value as "classic" | "modern" | "minimal")} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">

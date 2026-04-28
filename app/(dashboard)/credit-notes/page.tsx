@@ -1,6 +1,5 @@
-import { ModulePage } from "@/components/shared/ModulePage";
-import { getModuleConfig } from "@/lib/modules";
+import { AdjustmentsWorkspace } from "@/components/workflows/AdjustmentsWorkspace";
 
 export default function CreditNotesPage() {
-  return <ModulePage config={getModuleConfig("credit-notes")} />;
+  return <AdjustmentsWorkspace variant="credit-note" />;
 }

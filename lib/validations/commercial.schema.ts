@@ -52,13 +52,15 @@ export const purchaseOrderSchema = baseCommercialSchema.extend({
 export const creditNoteSchema = baseCommercialSchema.extend({
   invoice_id: idSchema.optional().nullable(),
   credit_note_number: z.string().trim().min(2).max(40).optional(),
-  status: statusLabelSchema.default("draft")
+  status: z.enum(["draft", "issued", "applied", "void"]).default("draft"),
+  line_items: z.array(lineItemSchema).min(1).optional()
 });
 
 export const vendorCreditSchema = baseCommercialSchema.extend({
   bill_id: idSchema.optional().nullable(),
   vendor_credit_number: z.string().trim().min(2).max(40).optional(),
-  status: statusLabelSchema.default("draft")
+  status: z.enum(["draft", "received", "applied", "void"]).default("draft"),
+  line_items: z.array(lineItemSchema).min(1).optional()
 });
 
 export const timeEntrySchema = z.object({

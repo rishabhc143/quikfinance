@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { DocumentEditor } from "@/components/transactions/DocumentEditor";
 
 export default function NewVendorCreditPage() {
-  return <FormPage config={getModuleConfig("vendor-credits")} />;
+  return <DocumentEditor kind="vendor-credit" />;
 }
