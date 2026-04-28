@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { canWriteData, requireApiContext, type ApiContext } from "@/lib/api/auth";
+import { canManageBanking, requireApiContext, type ApiContext } from "@/lib/api/auth";
 import { createInternalTransferTransaction } from "@/lib/accounting/transactions";
 import { fail, ok } from "@/lib/api/responses";
 import { assertPeriodUnlocked } from "@/lib/period-locks";
@@ -177,8 +177,8 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const auth = await requireApiContext();
   if (!auth.ok) return fail(auth.status, { code: auth.code, message: auth.message });
-  if (!canWriteData(auth.context.role)) {
-    return fail(403, { code: "READ_ONLY_ROLE", message: "Your role has read-only access." });
+  if (!canManageBanking(auth.context.role)) {
+    return fail(403, { code: "INSUFFICIENT_ROLE", message: "Only owners, admins, and accountants can create transfers." });
   }
 
   const json = await request.json().catch(() => ({}));

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { canWriteData, requireApiContext } from "@/lib/api/auth";
+import { canManageBanking, requireApiContext } from "@/lib/api/auth";
 import { fail, ok } from "@/lib/api/responses";
 import { processImportPayload } from "@/lib/imports/processors";
 import { assertPeriodUnlocked } from "@/lib/period-locks";
@@ -30,8 +30,8 @@ export async function POST(request: Request) {
   if (!auth.ok) {
     return fail(auth.status, { code: auth.code, message: auth.message });
   }
-  if (!canWriteData(auth.context.role)) {
-    return fail(403, { code: "READ_ONLY_ROLE", message: "Your role has read-only access." });
+  if (!canManageBanking(auth.context.role)) {
+    return fail(403, { code: "INSUFFICIENT_ROLE", message: "Only owners, admins, and accountants can import bank feeds." });
   }
 
   const json = await request.json().catch(() => ({}));

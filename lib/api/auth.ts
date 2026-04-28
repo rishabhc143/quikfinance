@@ -32,6 +32,30 @@ export function canManageLocks(role: string) {
   return hasRole(role, ["owner", "admin", "accountant"]);
 }
 
+export function canManageFinance(role: string) {
+  return hasRole(role, ["owner", "admin", "accountant"]);
+}
+
+export function canManageBanking(role: string) {
+  return hasRole(role, ["owner", "admin", "accountant"]);
+}
+
+export function canManageCompliance(role: string) {
+  return hasRole(role, ["owner", "admin", "accountant"]);
+}
+
+export function canAssignUserRole(actorRole: string, targetRole: string) {
+  if (actorRole === "owner") {
+    return ["owner", "admin", "accountant", "member", "viewer"].includes(targetRole);
+  }
+
+  if (actorRole === "admin") {
+    return ["accountant", "member", "viewer"].includes(targetRole);
+  }
+
+  return false;
+}
+
 export async function requireApiContext(): Promise<AuthResult> {
   const supabase = createSupabaseServerClient();
   const {

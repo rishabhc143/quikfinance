@@ -1,4 +1,4 @@
-import { canWriteData, requireApiContext } from "@/lib/api/auth";
+import { canManageBanking, requireApiContext } from "@/lib/api/auth";
 import { errorMessage, fail, ok } from "@/lib/api/responses";
 import { processImportPayload } from "@/lib/imports/processors";
 
@@ -202,8 +202,8 @@ export async function POST(request: Request) {
   if (!auth.ok) {
     return fail(auth.status, { code: auth.code, message: auth.message });
   }
-  if (!canWriteData(auth.context.role)) {
-    return fail(403, { code: "READ_ONLY_ROLE", message: "Your role is read-only." });
+  if (!canManageBanking(auth.context.role)) {
+    return fail(403, { code: "INSUFFICIENT_ROLE", message: "Only owners, admins, and accountants can reconcile bank activity." });
   }
 
   try {

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { getServerEnv } from "@/lib/env";
-import { canManageUsers, requireApiContext } from "@/lib/api/auth";
+import { canAssignUserRole, canManageUsers, requireApiContext } from "@/lib/api/auth";
 import { fail, ok } from "@/lib/api/responses";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -111,6 +111,12 @@ export async function POST(request: NextRequest) {
 
   if (!["owner", "admin", "accountant", "member", "viewer"].includes(role)) {
     return fail(422, { code: "VALIDATION_FAILED", message: "The selected role is invalid." });
+  }
+  if (!canAssignUserRole(auth.context.role, role)) {
+    return fail(403, {
+      code: "INSUFFICIENT_ROLE",
+      message: auth.context.role === "admin" ? "Admins cannot invite or assign owner/admin roles." : "Your role cannot assign this user role."
+    });
   }
 
   try {

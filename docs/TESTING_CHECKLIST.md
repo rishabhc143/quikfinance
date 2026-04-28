@@ -7,6 +7,8 @@
 - Logout user
 - Protected route redirect to `/login`
 - Incomplete setup redirect to `/company-setup`
+- Verify `viewer` cannot create/update/post/reconcile data
+- Verify `admin` cannot assign `owner` or `admin` role through user invites
 
 ## Company Setup
 

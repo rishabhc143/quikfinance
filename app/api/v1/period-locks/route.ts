@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   }
 
   if (!canManageLocks(auth.context.role)) {
-    return fail(403, { code: "INSUFFICIENT_ROLE", message: "Only admins and accountants can lock periods." });
+    return fail(403, { code: "INSUFFICIENT_ROLE", message: "Only owners, admins, and accountants can lock periods." });
   }
 
   try {

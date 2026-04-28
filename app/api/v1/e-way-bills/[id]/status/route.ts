@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { canWriteData, requireApiContext } from "@/lib/api/auth";
+import { canManageCompliance, requireApiContext } from "@/lib/api/auth";
 import { fail, ok } from "@/lib/api/responses";
 import { resolveWorkflowExceptions, upsertWorkflowException } from "@/lib/compliance/exceptions";
 import type { Json } from "@/types/database.types";
@@ -9,7 +9,9 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const auth = await requireApiContext();
   if (!auth.ok) return fail(auth.status, { code: auth.code, message: auth.message });
-  if (!canWriteData(auth.context.role)) return fail(403, { code: "READ_ONLY_ROLE", message: "Your role has read-only access." });
+  if (!canManageCompliance(auth.context.role)) {
+    return fail(403, { code: "INSUFFICIENT_ROLE", message: "Only owners, admins, and accountants can update e-way bill status." });
+  }
 
   const body = await request.json().catch(() => ({}));
   const status = typeof body.status === "string" ? body.status : "";
