@@ -87,13 +87,14 @@ export const navigationGroups: NavigationGroup[] = [
     label: "Workspace",
     icon: Activity,
     items: [
-      { title: "Dashboard", href: "/dashboard", icon: Activity },
-      { title: "Global Search", href: "/search", icon: Search },
-      { title: "Tasks / Exceptions", href: "/exception-queue", icon: ShieldCheck },
-      { title: "AI Copilot", href: "/finance-copilot", icon: Bot },
-      { title: "Demo Guide", href: "/help/demo-guide", icon: BookOpen }
-    ]
-  },
+        { title: "Dashboard", href: "/dashboard", icon: Activity },
+        { title: "Global Search", href: "/search", icon: Search },
+        { title: "Tasks / Exceptions", href: "/exception-queue", icon: ShieldCheck },
+        { title: "AI Copilot", href: "/finance-copilot", icon: Bot },
+        { title: "Demo Guide", href: "/help/demo-guide", icon: BookOpen },
+        { title: "2-Week Plan", href: "/help/work-plan", icon: ClipboardList }
+      ]
+    },
   {
     label: "Revenue",
     icon: CircleDollarSign,

@@ -1,6 +1,5 @@
-import { ModulePage } from "@/components/shared/ModulePage";
-import { getModuleConfig } from "@/lib/modules";
+import { CurrenciesWorkspace } from "@/components/settings/CurrenciesWorkspace";
 
 export default function CurrenciesPage() {
-  return <ModulePage config={getModuleConfig("currencies")} />;
+  return <CurrenciesWorkspace />;
 }

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuikFinance 2-Week Work Plan</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #172033;
+      --muted: #52607a;
+      --line: #d7dfeb;
+      --accent: #0f766e;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .page {
+      max-width: 980px;
+      margin: 32px auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 10px 30px rgba(12, 20, 35, 0.08);
+    }
+
+    h1, h2, h3 {
+      margin: 0 0 12px;
+      line-height: 1.25;
+    }
+
+    h1 {
+      font-size: 34px;
+    }
+
+    h2 {
+      margin-top: 32px;
+      font-size: 24px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+    }
+
+    h3 {
+      margin-top: 24px;
+      font-size: 18px;
+      color: var(--accent);
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    ul, ol {
+      margin: 0 0 16px 20px;
+      padding: 0;
+    }
+
+    li {
+      margin-bottom: 8px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .section {
+      margin-top: 24px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px;
+      background: #fcfdff;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+      }
+
+      .page {
+        margin: 0;
+        max-width: none;
+        box-shadow: none;
+        border: 0;
+        border-radius: 0;
+        padding: 0;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        margin: 0;
+        border-radius: 0;
+        padding: 24px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <h1>QuikFinance 2-Week Work Plan</h1>
+    <p class="muted">Execution plan for the next 2 weeks of product hardening, workflow depth, and demo readiness.</p>
+
+    <h2>Objective</h2>
+    <p>Over the next 2 weeks, the focus is to move QuikFinance from a strong operational MVP into a cleaner client-demo-ready and pilot-ready finance product.</p>
+    <p>This plan is based on the current app state:</p>
+    <ul>
+      <li>core accounting flows are operational</li>
+      <li>major workflows are connected to the backend</li>
+      <li>several modules are already hardened</li>
+      <li>the remaining work is mostly product depth, operational controls, reporting polish, and workflow consistency</li>
+    </ul>
+
+    <h2>Overall 2-Week Goals</h2>
+    <ul>
+      <li>accounting control and governance</li>
+      <li>banking and reconciliation depth</li>
+      <li>reporting and export readiness</li>
+      <li>client-facing workflow polish</li>
+      <li>role/security hardening</li>
+      <li>final demo readiness</li>
+    </ul>
+
+    <h2>Week 1 Goals</h2>
+    <div class="grid">
+      <section class="card">
+        <h3>1. Banking And Reconciliation Hardening</h3>
+        <p>Improve bank account workspace depth, reconciliation visibility, unmatched statement visibility, and links across feeds, reconciliation, settlements, and payment operations.</p>
+      </section>
+      <section class="card">
+        <h3>2. Reporting And Export Readiness</h3>
+        <p>Improve report drilldowns, CSV consistency, printable layouts, filters, and the presentation quality of finance reports.</p>
+      </section>
+      <section class="card">
+        <h3>3. Governance And Audit Controls</h3>
+        <p>Deepen audit trail usability, review settings/control flows, and improve visibility into company-setting and compliance changes.</p>
+      </section>
+      <section class="card">
+        <h3>4. User, Role, And Permission Hardening</h3>
+        <p>Review and tighten role behavior for owners, admins, accountants, and viewers across sensitive modules and control actions.</p>
+      </section>
+    </div>
+
+    <h2>Week 2 Goals</h2>
+    <div class="grid">
+      <section class="card">
+        <h3>5. Remaining Thin Module Hardening</h3>
+        <p>Focus on modules that still feel generic or operationally thin, such as currencies, users/roles, bank accounts, and audit controls.</p>
+      </section>
+      <section class="card">
+        <h3>6. Client Demo Flow Polish</h3>
+        <p>Improve the full demo path from login and onboarding through invoices, payments, bills, GST, reports, and controls.</p>
+      </section>
+      <section class="card">
+        <h3>7. OCR, Compliance, And Finance Workflow Polish</h3>
+        <p>Improve OCR status visibility, blocked flows, exception-to-record linkage, and overall compliance usability.</p>
+      </section>
+      <section class="card">
+        <h3>8. Final Pilot-Readiness QA Pass</h3>
+        <p>Run focused verification on onboarding, transactions, GST, OCR, reports, locks, audit trail, and route protection.</p>
+      </section>
+    </div>
+
+    <h2>New Things Planned For Implementation</h2>
+    <h3>New / Improved Operational Features</h3>
+    <ul>
+      <li>stronger bank account and reconciliation control surfaces</li>
+      <li>improved compliance blocker visibility across more modules</li>
+      <li>better report export and printable report flows</li>
+      <li>deeper audit trail filtering and review behavior</li>
+      <li>improved role-guarded control actions</li>
+      <li>better client-demo flow and navigation polish</li>
+    </ul>
+
+    <h3>New / Improved UX Behavior</h3>
+    <ul>
+      <li>fewer generic module screens</li>
+      <li>stronger workflow-specific summaries</li>
+      <li>better quick actions between related modules</li>
+      <li>cleaner empty states and action prompts</li>
+      <li>improved control dashboards for finance/admin users</li>
+    </ul>
+
+    <h3>New / Improved Quality Controls</h3>
+    <ul>
+      <li>more end-to-end verification on critical finance flows</li>
+      <li>stronger alignment between UI workflows and backend enforcement</li>
+      <li>cleaner pilot/demo readiness documentation</li>
+    </ul>
+
+    <h2>Deliverables By End Of 2 Weeks</h2>
+    <ul>
+      <li>hardened banking and reconciliation workflow surfaces</li>
+      <li>stronger report/export readiness</li>
+      <li>stronger audit/governance controls</li>
+      <li>improved role/permission confidence</li>
+      <li>more polished compliance and OCR workflows</li>
+      <li>smoother client demo flow</li>
+      <li>updated documentation and QA notes</li>
+    </ul>
+
+    <h2>Priority Order</h2>
+    <ol>
+      <li>Banking and reconciliation depth</li>
+      <li>Reporting and export polish</li>
+      <li>Audit/governance controls</li>
+      <li>RBAC hardening</li>
+      <li>Remaining thin-module cleanup</li>
+      <li>Client demo flow polish</li>
+      <li>OCR/compliance workflow polish</li>
+      <li>Final QA and demo-readiness verification</li>
+    </ol>
+
+    <h2>Risks / Constraints</h2>
+    <ul>
+      <li>some advanced behavior still depends on external providers and credentials</li>
+      <li><code>next build</code> continues to auto-rewrite <code>tsconfig.json</code> include entries, so this must keep being corrected before commits</li>
+      <li>some modules are already live but may still need deeper backend sophistication, not just UI work</li>
+      <li>live verification of authenticated flows requires controlled test-user handling</li>
+    </ul>
+
+    <h2>Success Criteria</h2>
+    <ul>
+      <li>the app is stronger in the modules that still feel generic or thin</li>
+      <li>demo-critical workflows are smoother and more reliable</li>
+      <li>financial control surfaces are more deliberate</li>
+      <li>reporting is easier to present to clients</li>
+      <li>the product is more credible in a real pilot/demo setting</li>
+    </ul>
+
+    <h2>Working Principle</h2>
+    <p>For these 2 weeks, the priority is not to add random new pages. The priority is to strengthen existing flows, reduce weak spots, improve finance controls, improve demo readiness, and make the product feel more coherent end-to-end.</p>
+  </main>
+</body>
+</html>

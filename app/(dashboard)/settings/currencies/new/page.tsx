@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { CurrenciesWorkspace } from "@/components/settings/CurrenciesWorkspace";
 
 export default function NewCurrencyPage() {
-  return <FormPage config={getModuleConfig("currencies")} />;
+  return <CurrenciesWorkspace initialComposerOpen />;
 }
