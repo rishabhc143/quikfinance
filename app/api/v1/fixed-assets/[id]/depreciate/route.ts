@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { canWriteData, requireApiContext } from "@/lib/api/auth";
 import { fail, ok } from "@/lib/api/responses";
+import { postFixedAssetDepreciation } from "@/lib/accounting/fixed-assets";
 import type { Json } from "@/types/database.types";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +15,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 
   const body = await request.json().catch(() => ({}));
   const months = Math.max(Number(body.months ?? 1), 1);
+  const entryDate = typeof body.entry_date === "string" && body.entry_date ? body.entry_date : new Date().toISOString().slice(0, 10);
 
   const { data: asset, error: assetError } = await auth.context.supabase
     .from("fixed_assets")
-    .select("id, name, purchase_cost, salvage_value, useful_life_months, depreciation_method, accumulated_depreciation, status")
+    .select("id, name, purchase_cost, salvage_value, useful_life_months, depreciation_method, accumulated_depreciation, status, asset_account_id, depreciation_expense_account_id, accumulated_depreciation_account_id")
     .eq("org_id", auth.context.orgId)
     .eq("id", params.id)
     .single();
@@ -30,37 +32,20 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     return fail(422, { code: "INVALID_STATUS", message: "Only active assets can be depreciated." });
   }
 
-  const purchaseCost = Number(asset.purchase_cost ?? 0);
-  const salvageValue = Number(asset.salvage_value ?? 0);
-  const usefulLifeMonths = Math.max(Number(asset.useful_life_months ?? 1), 1);
-  const accumulated = Number(asset.accumulated_depreciation ?? 0);
-  const remainingBase = Math.max(0, purchaseCost - salvageValue - accumulated);
-  const monthly = String(asset.depreciation_method) === "declining_balance"
-    ? Number(((Math.max(purchaseCost - accumulated, 0) * 0.2) / 12).toFixed(2))
-    : Number(((purchaseCost - salvageValue) / usefulLifeMonths).toFixed(2));
-  const depreciationAmount = Math.min(remainingBase, Number((monthly * months).toFixed(2)));
-  const nextAccumulated = Number((accumulated + depreciationAmount).toFixed(2));
+  try {
+    const result = await postFixedAssetDepreciation(auth.context, asset as never, { months, entryDate });
 
-  const { data, error } = await auth.context.supabase
-    .from("fixed_assets")
-    .update({ accumulated_depreciation: nextAccumulated })
-    .eq("org_id", auth.context.orgId)
-    .eq("id", params.id)
-    .select("*")
-    .single();
+    await auth.context.supabase.from("audit_logs").insert({
+      org_id: auth.context.orgId,
+      user_id: auth.context.userId,
+      action: "depreciate",
+      entity_type: "fixed_asset",
+      entity_id: params.id,
+      new_values: { months, entry_date: entryDate, depreciation_amount: result.depreciationAmount, accumulated_depreciation: result.nextAccumulated, journal_entry_id: result.journalEntryId } as unknown as Json
+    });
 
-  if (error) {
-    return fail(400, { code: "UPDATE_FAILED", message: error.message });
+    return ok({ asset: result.asset, depreciation_amount: result.depreciationAmount, months, journal_entry_id: result.journalEntryId });
+  } catch (error) {
+    return fail(400, { code: "UPDATE_FAILED", message: error instanceof Error ? error.message : "Depreciation could not be posted." });
   }
-
-  await auth.context.supabase.from("audit_logs").insert({
-    org_id: auth.context.orgId,
-    user_id: auth.context.userId,
-    action: "depreciate",
-    entity_type: "fixed_asset",
-    entity_id: params.id,
-    new_values: { months, depreciation_amount: depreciationAmount, accumulated_depreciation: nextAccumulated } as unknown as Json
-  });
-
-  return ok({ asset: data, depreciation_amount: depreciationAmount, months });
 }

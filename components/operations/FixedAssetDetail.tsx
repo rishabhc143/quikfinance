@@ -79,9 +79,16 @@ export function FixedAssetDetail({ id }: { id: string }) {
   };
 
   const dispose = async () => {
+    const disposalAmountText = window.prompt("Enter disposal proceeds amount", "0");
+    if (disposalAmountText === null) return;
+    const disposalAmount = Math.max(Number(disposalAmountText || 0), 0);
     setWorking("dispose");
     try {
-      const response = await fetch(`/api/v1/fixed-assets/${id}/dispose`, { method: "POST" });
+      const response = await fetch(`/api/v1/fixed-assets/${id}/dispose`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disposal_amount: disposalAmount })
+      });
       const json = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(json.error?.message ?? "Asset could not be disposed.");
       toast.success("Asset marked as disposed.");

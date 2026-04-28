@@ -12,12 +12,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { todayISO } from "@/lib/utils/dates";
 
 type Option = { id: string; display_name?: string; sales_order_number?: string };
+type WarehouseOption = { id: string; code?: string; name?: string };
 
 export function DeliveryDispatchEditor() {
   const router = useRouter();
   const [editId, setEditId] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Option[]>([]);
   const [salesOrders, setSalesOrders] = useState<Option[]>([]);
+  const [warehouses, setWarehouses] = useState<WarehouseOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dispatchNumber, setDispatchNumber] = useState("");
@@ -42,15 +44,18 @@ export function DeliveryDispatchEditor() {
     const load = async () => {
       setLoading(true);
       try {
-        const [customerRes, orderRes, detailRes] = await Promise.all([
+        const [customerRes, orderRes, warehouseRes, detailRes] = await Promise.all([
           fetch("/api/v1/customers", { signal: controller.signal }),
           fetch("/api/v1/sales-orders", { signal: controller.signal }),
+          fetch("/api/v1/workflows/warehouses", { signal: controller.signal }),
           editId ? fetch(`/api/v1/delivery-dispatch/${editId}`, { signal: controller.signal }) : Promise.resolve(null)
         ]);
         const customerJson = await customerRes.json().catch(() => ({ data: [] }));
         const orderJson = await orderRes.json().catch(() => ({ data: [] }));
+        const warehouseJson = await warehouseRes.json().catch(() => ({ records: [] }));
         setCustomers(Array.isArray(customerJson.data) ? customerJson.data : []);
         setSalesOrders(Array.isArray(orderJson.data) ? orderJson.data : []);
+        setWarehouses(Array.isArray(warehouseJson.records) ? warehouseJson.records : []);
         if (detailRes) {
           const detailJson = await detailRes.json().catch(() => ({}));
           if (!detailRes.ok) throw new Error(detailJson.error?.message ?? "Dispatch could not be loaded.");
@@ -148,8 +153,11 @@ export function DeliveryDispatchEditor() {
             </div>
           </div>
           <div>
-            <Label>Warehouse ID</Label>
-            <Input value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} className="mt-2" />
+            <Label>Warehouse</Label>
+            <select value={warehouseId} onChange={(event) => setWarehouseId(event.target.value)} className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm">
+              <option value="">Optional warehouse</option>
+              {warehouses.map((warehouse) => <option key={warehouse.id} value={warehouse.id}>{warehouse.code || warehouse.name || warehouse.id}</option>)}
+            </select>
           </div>
           <div>
             <Label>Shipped value</Label>

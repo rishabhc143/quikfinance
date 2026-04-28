@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,29 +26,50 @@ type RecordType = {
 export function TdsTcsDetail({ id }: { id: string }) {
   const [record, setRecord] = useState<RecordType | null>(null);
   const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState<string | null>(null);
+
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/v1/tds-tcs/${id}`, { signal });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error?.message ?? "Tax record could not be loaded.");
+      setRecord(json.data ?? null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Tax record could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
     const controller = new AbortController();
-    const load = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/v1/tds-tcs/${id}`, { signal: controller.signal });
-        const json = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(json.error?.message ?? "Tax record could not be loaded.");
-        setRecord(json.data ?? null);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Tax record could not be loaded.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
+    void load(controller.signal);
     return () => controller.abort();
-  }, [id]);
+  }, [load]);
 
   if (loading || !record) {
     return <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">Loading tax record...</div>;
   }
+
+  const updateStatus = async (status: string) => {
+    setWorking(status);
+    try {
+      const response = await fetch(`/api/v1/tds-tcs/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status })
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error?.message ?? "Tax record could not be updated.");
+      toast.success(`Tax record marked ${status}.`);
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Tax record could not be updated.");
+    } finally {
+      setWorking(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -70,6 +91,13 @@ export function TdsTcsDetail({ id }: { id: string }) {
           {record.party_id ? <div className="flex justify-between"><span className="text-muted-foreground">Party</span><Link href={`${record.party_type === "customer" ? "/customers" : "/vendors"}/${record.party_id}`} className="text-primary underline underline-offset-2">Open {record.party_type}</Link></div> : null}
           {record.transaction_id ? <div className="flex justify-between"><span className="text-muted-foreground">Transaction ID</span><span>{record.transaction_id}</span></div> : null}
           {record.notes ? <div className="md:col-span-2"><span className="text-muted-foreground">Notes</span><p className="mt-1">{record.notes}</p></div> : null}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Tax actions</CardTitle></CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => updateStatus("posted")} disabled={working !== null || record.status === "posted"}>{working === "posted" ? "Updating..." : "Mark posted"}</Button>
+          <Button onClick={() => updateStatus("filed")} disabled={working !== null || record.status === "filed"}>{working === "filed" ? "Updating..." : "Mark filed"}</Button>
         </CardContent>
       </Card>
     </div>

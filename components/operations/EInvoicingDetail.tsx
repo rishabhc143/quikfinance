@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,29 +25,60 @@ type EInvoiceRecord = {
 export function EInvoicingDetail({ id }: { id: string }) {
   const [record, setRecord] = useState<EInvoiceRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [working, setWorking] = useState<string | null>(null);
+
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/v1/e-invoicing/${id}`, { signal });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error?.message ?? "E-invoice submission could not be loaded.");
+      setRecord(json.data ?? null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "E-invoice submission could not be loaded.");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
     const controller = new AbortController();
-    const load = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/v1/e-invoicing/${id}`, { signal: controller.signal });
-        const json = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(json.error?.message ?? "E-invoice submission could not be loaded.");
-        setRecord(json.data ?? null);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "E-invoice submission could not be loaded.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
+    void load(controller.signal);
     return () => controller.abort();
-  }, [id]);
+  }, [load]);
 
   if (loading || !record) {
     return <div className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">Loading e-invoice submission...</div>;
   }
+
+  const updateStatus = async (status: string) => {
+    setWorking(status);
+    try {
+      const payload: Record<string, unknown> = { status };
+      if (status === "generated") {
+        payload.irn = record.irn || `IRN-${Date.now().toString().slice(-8)}`;
+        payload.ack_number = record.ack_number || `ACK-${Date.now().toString().slice(-6)}`;
+        payload.ack_date = record.ack_date || new Date().toISOString().slice(0, 10);
+        payload.error_message = null;
+      }
+      if (status === "failed") {
+        payload.error_message = record.error_message || "Provider validation failed during submission.";
+      }
+      const response = await fetch(`/api/v1/e-invoicing/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error?.message ?? "Status could not be updated.");
+      toast.success(`Submission marked ${status}.`);
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Status could not be updated.");
+    } finally {
+      setWorking(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -69,6 +100,14 @@ export function EInvoicingDetail({ id }: { id: string }) {
           {record.ack_date ? <div className="flex justify-between"><span className="text-muted-foreground">Ack date</span><span>{record.ack_date}</span></div> : null}
           {record.invoice_id ? <div className="flex justify-between"><span className="text-muted-foreground">Invoice</span><Link href={`/invoices/${record.invoice_id}`} className="text-primary underline underline-offset-2">{record.invoice_number}</Link></div> : null}
           {record.error_message ? <div className="md:col-span-2"><span className="text-muted-foreground">Error</span><p className="mt-1">{record.error_message}</p></div> : null}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Compliance actions</CardTitle></CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => updateStatus("submitted")} disabled={working !== null || record.status === "submitted"}>{working === "submitted" ? "Updating..." : "Mark submitted"}</Button>
+          <Button onClick={() => updateStatus("generated")} disabled={working !== null || record.status === "generated"}>{working === "generated" ? "Updating..." : "Mark generated"}</Button>
+          <Button variant="destructive" onClick={() => updateStatus("failed")} disabled={working !== null || record.status === "failed"}>{working === "failed" ? "Updating..." : "Mark failed"}</Button>
         </CardContent>
       </Card>
     </div>
