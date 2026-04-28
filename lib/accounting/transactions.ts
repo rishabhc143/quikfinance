@@ -14,6 +14,8 @@ type LineInput = {
 type TaxRateRow = {
   id: string;
   rate: number;
+  payable_account_id: string | null;
+  recoverable_account_id: string | null;
 };
 
 type AccountLookup = Record<string, { id: string; code: string; name: string; account_type: string }>;
@@ -79,11 +81,25 @@ async function getContactStateCode(context: ApiContext, contactId: string | null
 
 async function getTaxRates(context: ApiContext, ids: string[]) {
   if (ids.length === 0) return new Map<string, TaxRateRow>();
-  const { data, error } = await context.supabase.from("tax_rates").select("id, rate").eq("org_id", context.orgId).in("id", ids);
+  const { data, error } = await context.supabase
+    .from("tax_rates")
+    .select("id, rate, payable_account_id, recoverable_account_id")
+    .eq("org_id", context.orgId)
+    .in("id", ids);
   if (error) {
     throw new Error(error.message);
   }
-  return new Map((data ?? []).map((row) => [String(row.id), { id: String(row.id), rate: Number(row.rate ?? 0) }]));
+  return new Map(
+    (data ?? []).map((row) => [
+      String(row.id),
+      {
+        id: String(row.id),
+        rate: Number(row.rate ?? 0),
+        payable_account_id: typeof row.payable_account_id === "string" ? row.payable_account_id : null,
+        recoverable_account_id: typeof row.recoverable_account_id === "string" ? row.recoverable_account_id : null
+      }
+    ])
+  );
 }
 
 async function getSystemAccounts(context: ApiContext): Promise<AccountLookup> {
@@ -98,6 +114,57 @@ async function getSystemAccounts(context: ApiContext): Promise<AccountLookup> {
   }
 
   return Object.fromEntries((data ?? []).map((row) => [String(row.code), { id: String(row.id), code: String(row.code), name: String(row.name), account_type: String(row.account_type) }]));
+}
+
+async function buildTaxAccountLines(
+  context: ApiContext,
+  lines: DocumentComputation["lines"],
+  direction: "payable" | "recoverable"
+) {
+  const taxRateIds = [...new Set(lines.map((line) => line.tax_rate_id).filter((value): value is string => typeof value === "string" && value.length > 0))];
+  const taxRates = await getTaxRates(context, taxRateIds);
+  const systemAccounts = await getSystemAccounts(context);
+  const fallbackAccountId = direction === "payable" ? systemAccounts["2200"]?.id ?? null : systemAccounts["2210"]?.id ?? null;
+
+  const grouped = new Map<string, number>();
+  for (const line of lines) {
+    if (Number(line.tax_amount ?? 0) <= 0) continue;
+    const configuredTaxRate = line.tax_rate_id ? taxRates.get(line.tax_rate_id) : null;
+    const accountId =
+      direction === "payable"
+        ? configuredTaxRate?.payable_account_id ?? fallbackAccountId
+        : configuredTaxRate?.recoverable_account_id ?? fallbackAccountId;
+
+    if (!accountId) {
+      throw new Error(`A ${direction === "payable" ? "tax payable" : "tax recoverable"} account is required before posting tax journals.`);
+    }
+
+    grouped.set(accountId, toMoney((grouped.get(accountId) ?? 0) + Number(line.tax_amount ?? 0)));
+  }
+
+  return [...grouped.entries()].map(([account_id, amount]) => ({ account_id, amount }));
+}
+
+async function getDocumentOpenBalance(context: ApiContext, type: "invoice" | "bill", id: string) {
+  const table = type === "invoice" ? "invoices" : "bills";
+  const numberField = type === "invoice" ? "invoice_number" : "bill_number";
+  const { data, error } = await context.supabase
+    .from(table)
+    .select(`id, balance_due, total, status, ${numberField}`)
+    .eq("org_id", context.orgId)
+    .eq("id", id)
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? `${type === "invoice" ? "Invoice" : "Bill"} not found.`);
+  }
+
+  return {
+    balance_due: Number(data.balance_due ?? 0),
+    total: Number(data.total ?? 0),
+    status: String(data.status ?? ""),
+    number: String((data as Record<string, unknown>)[numberField] ?? "")
+  };
 }
 
 async function resolveBankLedgerAccountId(context: ApiContext, bankAccountId?: string | null, method?: string | null) {
@@ -469,10 +536,35 @@ export async function postInvoiceJournal(context: ApiContext, invoiceId: string)
   const systemAccounts = await getSystemAccounts(context);
   const revenueAccountId = systemAccounts["4000"]?.id ?? systemAccounts["4100"]?.id;
   const receivableAccountId = systemAccounts["1200"]?.id;
-  const taxPayableAccountId = systemAccounts["2200"]?.id;
-  if (!revenueAccountId || !receivableAccountId || !taxPayableAccountId) {
+  if (!revenueAccountId || !receivableAccountId) {
     throw new Error("Required system accounts are missing.");
   }
+
+  const { data: invoiceLines, error: invoiceLinesError } = await context.supabase
+    .from("invoice_lines")
+    .select("tax_rate_id, tax_amount")
+    .eq("org_id", context.orgId)
+    .eq("invoice_id", invoiceId);
+  if (invoiceLinesError) {
+    throw new Error(invoiceLinesError.message);
+  }
+
+  const taxLines = await buildTaxAccountLines(
+    context,
+    (invoiceLines ?? []).map((line) => ({
+      item_id: null,
+      account_id: null,
+      description: "",
+      quantity: 0,
+      rate: 0,
+      discount: 0,
+      tax_rate_id: typeof line.tax_rate_id === "string" ? line.tax_rate_id : null,
+      tax_amount: Number(line.tax_amount ?? 0),
+      line_total: 0,
+      taxable_amount: 0
+    })),
+    "payable"
+  );
 
   const taxableAmount = toMoney(Number(invoice.subtotal ?? 0) - Number(invoice.discount_total ?? 0));
   const journalEntryId = await insertJournal(context, {
@@ -483,7 +575,12 @@ export async function postInvoiceJournal(context: ApiContext, invoiceId: string)
     lines: [
       { account_id: receivableAccountId, debit: Number(invoice.total ?? 0), credit: 0, description: `Invoice ${invoice.invoice_number}` },
       { account_id: revenueAccountId, debit: 0, credit: taxableAmount, description: `Revenue ${invoice.invoice_number}` },
-      { account_id: taxPayableAccountId, debit: 0, credit: Number(invoice.tax_total ?? 0), description: `GST output ${invoice.invoice_number}` }
+      ...taxLines.map((line) => ({
+        account_id: line.account_id,
+        debit: 0,
+        credit: line.amount,
+        description: `GST output ${invoice.invoice_number}`
+      }))
     ]
   });
   await upsertAccountBalancesFromJournal(context, journalEntryId);
@@ -549,10 +646,35 @@ export async function postBillJournal(context: ApiContext, billId: string) {
   const systemAccounts = await getSystemAccounts(context);
   const expenseAccountId = systemAccounts["6000"]?.id ?? systemAccounts["5000"]?.id;
   const payableAccountId = systemAccounts["2000"]?.id;
-  const taxRecoverableAccountId = systemAccounts["2210"]?.id;
-  if (!expenseAccountId || !payableAccountId || !taxRecoverableAccountId) {
+  if (!expenseAccountId || !payableAccountId) {
     throw new Error("Required system accounts are missing.");
   }
+
+  const { data: billLines, error: billLinesError } = await context.supabase
+    .from("bill_lines")
+    .select("tax_rate_id, tax_amount")
+    .eq("org_id", context.orgId)
+    .eq("bill_id", billId);
+  if (billLinesError) {
+    throw new Error(billLinesError.message);
+  }
+
+  const taxLines = await buildTaxAccountLines(
+    context,
+    (billLines ?? []).map((line) => ({
+      item_id: null,
+      account_id: null,
+      description: "",
+      quantity: 0,
+      rate: 0,
+      discount: 0,
+      tax_rate_id: typeof line.tax_rate_id === "string" ? line.tax_rate_id : null,
+      tax_amount: Number(line.tax_amount ?? 0),
+      line_total: 0,
+      taxable_amount: 0
+    })),
+    "recoverable"
+  );
 
   const taxableAmount = toMoney(Number(bill.subtotal ?? 0) - Number(bill.discount_total ?? 0));
   const journalEntryId = await insertJournal(context, {
@@ -562,7 +684,12 @@ export async function postBillJournal(context: ApiContext, billId: string) {
     source_id: String(bill.id),
     lines: [
       { account_id: expenseAccountId, debit: taxableAmount, credit: 0, description: `Expense ${bill.bill_number}` },
-      { account_id: taxRecoverableAccountId, debit: Number(bill.tax_total ?? 0), credit: 0, description: `GST input ${bill.bill_number}` },
+      ...taxLines.map((line) => ({
+        account_id: line.account_id,
+        debit: line.amount,
+        credit: 0,
+        description: `GST input ${bill.bill_number}`
+      })),
       { account_id: payableAccountId, debit: 0, credit: Number(bill.total ?? 0), description: `Payable ${bill.bill_number}` }
     ]
   });
@@ -592,6 +719,27 @@ export async function createPaymentTransaction(context: ApiContext, input: {
   }
 
   const status = input.status ?? "posted";
+  let allocationAmount = 0;
+
+  if (status === "posted" && input.invoice_id) {
+    const invoice = await getDocumentOpenBalance(context, "invoice", input.invoice_id);
+    if (invoice.balance_due <= 0) {
+      throw new Error(`Invoice ${invoice.number} has no remaining balance.`);
+    }
+    if (Number(input.amount) > invoice.balance_due) {
+      throw new Error(`Payment amount cannot exceed invoice balance of ${toMoney(invoice.balance_due)}.`);
+    }
+    allocationAmount = toMoney(Number(input.amount));
+  } else if (status === "posted" && input.bill_id) {
+    const bill = await getDocumentOpenBalance(context, "bill", input.bill_id);
+    if (bill.balance_due <= 0) {
+      throw new Error(`Bill ${bill.number} has no remaining balance.`);
+    }
+    if (Number(input.amount) > bill.balance_due) {
+      throw new Error(`Payment amount cannot exceed bill balance of ${toMoney(bill.balance_due)}.`);
+    }
+    allocationAmount = toMoney(Number(input.amount));
+  }
 
   const { data: payment, error } = await context.supabase
     .from("payments")
@@ -628,11 +776,7 @@ export async function createPaymentTransaction(context: ApiContext, input: {
     return payment;
   }
 
-  let allocationAmount = 0;
   if (input.invoice_id) {
-    const status = await recalculateInvoiceStatus(context, input.invoice_id).catch(() => null);
-    const { data: invoice } = await context.supabase.from("invoices").select("balance_due, total").eq("org_id", context.orgId).eq("id", input.invoice_id).single();
-    allocationAmount = Math.min(input.amount, Number(invoice?.balance_due ?? input.amount));
     await context.supabase.from("payment_allocations").insert({
       org_id: context.orgId,
       payment_id: payment.id,
@@ -641,10 +785,7 @@ export async function createPaymentTransaction(context: ApiContext, input: {
     });
     await context.supabase.from("payments").update({ unapplied_amount: toMoney(input.amount - allocationAmount) }).eq("org_id", context.orgId).eq("id", payment.id);
     await recalculateInvoiceStatus(context, input.invoice_id);
-    void status;
   } else if (input.bill_id) {
-    const { data: bill } = await context.supabase.from("bills").select("balance_due, total").eq("org_id", context.orgId).eq("id", input.bill_id).single();
-    allocationAmount = Math.min(input.amount, Number(bill?.balance_due ?? input.amount));
     await context.supabase.from("payment_allocations").insert({
       org_id: context.orgId,
       payment_id: payment.id,

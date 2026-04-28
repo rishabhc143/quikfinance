@@ -29,6 +29,7 @@
 - Create invoice
 - Save invoice draft
 - Mark invoice as sent
+- Verify invoice journal posts tax into configured GST payable accounts
 - Open invoice payment link page
 - Generate invoice PDF
 
@@ -36,6 +37,7 @@
 
 - Create bill
 - Create OCR draft bill
+- Verify bill journal posts tax into configured GST recoverable accounts
 - Record bill payment
 
 ## Expenses
@@ -47,6 +49,8 @@
 
 - Record customer payment
 - Record vendor payment
+- Reject customer payment that exceeds invoice balance
+- Reject vendor payment that exceeds bill balance
 - Confirm dashboards update
 
 ## GST
