@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { TaxRatesWorkspace } from "@/components/accounting/TaxRatesWorkspace";
 
-export default function NewTaxPage() {
-  return <FormPage config={getModuleConfig("taxes")} />;
+export default function NewTaxesPage() {
+  return <TaxRatesWorkspace initialComposerOpen />;
 }

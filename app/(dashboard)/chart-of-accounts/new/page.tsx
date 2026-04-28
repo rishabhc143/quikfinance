@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { ChartOfAccountsWorkspace } from "@/components/accounting/ChartOfAccountsWorkspace";
 
-export default function NewAccountPage() {
-  return <FormPage config={getModuleConfig("chart-of-accounts")} />;
+export default function NewChartOfAccountsPage() {
+  return <ChartOfAccountsWorkspace initialComposerOpen />;
 }

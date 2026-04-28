@@ -1,6 +1,5 @@
-import { ModulePage } from "@/components/shared/ModulePage";
-import { getModuleConfig } from "@/lib/modules";
+import { TaxRatesWorkspace } from "@/components/accounting/TaxRatesWorkspace";
 
 export default function TaxesPage() {
-  return <ModulePage config={getModuleConfig("taxes")} />;
+  return <TaxRatesWorkspace />;
 }

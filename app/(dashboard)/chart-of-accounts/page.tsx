@@ -1,6 +1,5 @@
-import { ModulePage } from "@/components/shared/ModulePage";
-import { getModuleConfig } from "@/lib/modules";
+import { ChartOfAccountsWorkspace } from "@/components/accounting/ChartOfAccountsWorkspace";
 
 export default function ChartOfAccountsPage() {
-  return <ModulePage config={getModuleConfig("chart-of-accounts")} />;
+  return <ChartOfAccountsWorkspace />;
 }

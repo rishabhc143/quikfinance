@@ -1,6 +1,5 @@
-import { FormPage } from "@/components/shared/FormPage";
-import { getModuleConfig } from "@/lib/modules";
+import { PeriodLocksWorkspace } from "@/components/accounting/PeriodLocksWorkspace";
 
-export default function NewPeriodLockPage() {
-  return <FormPage config={getModuleConfig("period-locks")} />;
+export default function NewPeriodLocksPage() {
+  return <PeriodLocksWorkspace initialComposerOpen />;
 }

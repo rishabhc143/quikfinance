@@ -1,6 +1,5 @@
-import { ModulePage } from "@/components/shared/ModulePage";
-import { getModuleConfig } from "@/lib/modules";
+import { PeriodLocksWorkspace } from "@/components/accounting/PeriodLocksWorkspace";
 
 export default function PeriodLocksPage() {
-  return <ModulePage config={getModuleConfig("period-locks")} />;
+  return <PeriodLocksWorkspace />;
 }
