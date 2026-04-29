@@ -3,12 +3,16 @@ export type DemoGuideStep = {
   route?: string;
   points: string[];
   talkingPoints?: string[];
+  audience?: Array<"founder" | "accountant" | "ops" | "investor">;
+  minutes?: number;
 };
 
 export const clientDemoGuide: DemoGuideStep[] = [
   {
     title: "Login And Setup",
     route: "/company-setup",
+    audience: ["founder", "accountant", "ops", "investor"],
+    minutes: 4,
     points: [
       "Sign in and complete company profile details.",
       "Set base currency, fiscal year, invoice prefix, and address details.",
@@ -21,6 +25,8 @@ export const clientDemoGuide: DemoGuideStep[] = [
   },
   {
     title: "Add Master Data",
+    audience: ["founder", "accountant", "ops"],
+    minutes: 4,
     points: [
       "Create customers.",
       "Create vendors.",
@@ -34,6 +40,8 @@ export const clientDemoGuide: DemoGuideStep[] = [
   {
     title: "Create A Sales Invoice",
     route: "/invoices/new",
+    audience: ["founder", "accountant"],
+    minutes: 4,
     points: [
       "Choose the customer.",
       "Add line items with quantity and rate.",
@@ -48,6 +56,8 @@ export const clientDemoGuide: DemoGuideStep[] = [
   {
     title: "Record Customer Payment",
     route: "/payments/received",
+    audience: ["founder", "accountant"],
+    minutes: 3,
     points: [
       "Open the invoice and record payment.",
       "Select method, date, reference, and bank account.",
@@ -60,6 +70,8 @@ export const clientDemoGuide: DemoGuideStep[] = [
   {
     title: "Create A Purchase Bill",
     route: "/bills/new",
+    audience: ["founder", "accountant", "ops"],
+    minutes: 4,
     points: [
       "Choose the vendor.",
       "Add line items and review GST input.",
@@ -72,6 +84,8 @@ export const clientDemoGuide: DemoGuideStep[] = [
   {
     title: "Record Vendor Payment",
     route: "/payments/made",
+    audience: ["founder", "accountant"],
+    minutes: 3,
     points: [
       "Open the bill and record payment.",
       "Choose the payout account and payment method.",
@@ -84,6 +98,8 @@ export const clientDemoGuide: DemoGuideStep[] = [
   {
     title: "Record Expenses",
     route: "/expenses/new",
+    audience: ["founder", "accountant"],
+    minutes: 3,
     points: [
       "Pick the expense ledger/category.",
       "Enter amount, GST, vendor, and payment source.",
@@ -96,6 +112,8 @@ export const clientDemoGuide: DemoGuideStep[] = [
   {
     title: "OCR Bill Capture",
     route: "/ocr-bills/new",
+    audience: ["founder", "accountant", "ops"],
+    minutes: 3,
     points: [
       "Upload a bill file.",
       "Parse OCR data.",
@@ -109,6 +127,8 @@ export const clientDemoGuide: DemoGuideStep[] = [
   {
     title: "Review Dashboard And Reports",
     route: "/dashboard",
+    audience: ["founder", "accountant", "investor"],
+    minutes: 5,
     points: [
       "Review dashboard KPIs.",
       "Open GST Summary and GST Parity.",
@@ -137,3 +157,10 @@ export const recommendedDemoOrder = [
   "GST reports",
   "Financial reports"
 ];
+
+export const demoGuideVariants = [
+  { key: "founder", label: "Founder Demo" },
+  { key: "accountant", label: "Accountant Demo" },
+  { key: "ops", label: "Operations Demo" },
+  { key: "investor", label: "Investor Overview" }
+] as const;

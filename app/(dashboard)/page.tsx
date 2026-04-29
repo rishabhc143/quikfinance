@@ -15,6 +15,32 @@ import { useDashboard } from "@/lib/hooks/useDashboard";
 export default function DashboardPage() {
   const { t } = useI18n();
   const { data } = useDashboard();
+  const primaryActions =
+    data.role === "viewer"
+      ? [
+          { href: "/reports", label: "Open Reports", variant: "primary" as const },
+          { href: "/collections", label: "Review Collections", variant: "secondary" as const },
+          { href: "/exception-queue", label: "View Exceptions", variant: "secondary" as const }
+        ]
+      : [
+          { href: "/invoices/new", label: t("dashboard.newInvoice", "New Invoice"), variant: "primary" as const },
+          { href: "/payments/received", label: t("dashboard.recordPayment", "Record Payment"), variant: "secondary" as const },
+          { href: "/expenses/new", label: t("dashboard.addExpense", "Add Expense"), variant: "secondary" as const },
+          { href: "/bills/new", label: t("dashboard.newBill", "New Bill"), variant: "secondary" as const }
+        ];
+
+  const actionPrompts =
+    data.role === "viewer"
+      ? [
+          { href: "/reports/profit-loss", title: "Review financials", description: "Open current P&L, balance sheet, and cash flow without changing data." },
+          { href: "/audit-trail", title: "Review audit trail", description: "Trace recent changes across accounting and operations." },
+          { href: "/exception-queue", title: "Check blockers", description: "See open exceptions that may need escalation." }
+        ]
+      : [
+          { href: "/collections", title: "Review collections", description: "Follow up on overdue receivables and share payment links." },
+          { href: "/payables", title: "Clear payables", description: "Review upcoming vendor dues and record payouts." },
+          { href: "/reports/gst-summary", title: "Validate GST", description: "Check GST output, input credit, and parity issues before filing." }
+        ];
 
   return (
     <div className="space-y-6 animate-fade-up">
@@ -24,10 +50,11 @@ export default function DashboardPage() {
           <p className="mt-2 text-sm text-muted-foreground">{t("dashboard.description", "Revenue, cash, receivables, payables, and transaction activity.")}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button asChild><Link href="/invoices/new">{t("dashboard.newInvoice", "New Invoice")}</Link></Button>
-          <Button asChild variant="secondary"><Link href="/payments/received">{t("dashboard.recordPayment", "Record Payment")}</Link></Button>
-          <Button asChild variant="secondary"><Link href="/expenses/new">{t("dashboard.addExpense", "Add Expense")}</Link></Button>
-          <Button asChild variant="secondary"><Link href="/bills/new">{t("dashboard.newBill", "New Bill")}</Link></Button>
+          {primaryActions.map((action) => (
+            <Button key={action.href} asChild variant={action.variant}>
+              <Link href={action.href}>{action.label}</Link>
+            </Button>
+          ))}
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -61,21 +88,15 @@ export default function DashboardPage() {
           <CardTitle>Action Prompts</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-3 md:grid-cols-3">
-          <Link href="/collections" className="rounded-lg border p-4 text-sm transition hover:bg-muted">
-            <div className="font-medium">Review collections</div>
-            <div className="mt-1 text-muted-foreground">Follow up on overdue receivables and share payment links.</div>
-          </Link>
-          <Link href="/payables" className="rounded-lg border p-4 text-sm transition hover:bg-muted">
-            <div className="font-medium">Clear payables</div>
-            <div className="mt-1 text-muted-foreground">Review upcoming vendor dues and record payouts.</div>
-          </Link>
-          <Link href="/reports/gst-summary" className="rounded-lg border p-4 text-sm transition hover:bg-muted">
-            <div className="font-medium">Validate GST</div>
-            <div className="mt-1 text-muted-foreground">Check GST output, input credit, and parity issues before filing.</div>
-          </Link>
+          {actionPrompts.map((prompt) => (
+            <Link key={prompt.href} href={prompt.href} className="rounded-lg border p-4 text-sm transition hover:bg-muted">
+              <div className="font-medium">{prompt.title}</div>
+              <div className="mt-1 text-muted-foreground">{prompt.description}</div>
+            </Link>
+          ))}
         </CardContent>
       </Card>
-      <CommandCenterPanel />
+      <CommandCenterPanel data={data.commandCenter} />
       <div className="grid gap-4 lg:grid-cols-3">
         <RevenueChart data={data.revenueExpense} />
         <ExpensesChart data={data.aging} />

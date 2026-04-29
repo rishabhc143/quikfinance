@@ -2,11 +2,17 @@ import type { ApiContext } from "@/lib/api/auth";
 import { loadCompanySetupSnapshot, type SetupChecklistItem } from "@/lib/company-setup";
 
 export type DashboardData = {
+  role: string;
   kpis: { label: string; value: number; change: string; tone: "good" | "warn" | "neutral"; kind?: "money" | "number"; href?: string }[];
   revenueExpense: { month: string; revenue: number; expenses: number }[];
   cashFlow: { date: string; cash: number }[];
   aging: { name: string; value: number }[];
   feed: { id: string; label: string; amount: number; date: string }[];
+  commandCenter: {
+    cards: { title: string; value: string; helper: string; href: string; status: string }[];
+    alerts: { label: string; href: string; tone: "warning" | "success" | "info" }[];
+    priorities: { title: string; description: string; href: string; tone: "warn" | "good" | "neutral" }[];
+  };
   setup: { completed: boolean; progress_percent: number; checklist: SetupChecklistItem[] };
 };
 
@@ -88,6 +94,7 @@ function feedDate(value: string) {
 }
 
 export const fallbackDashboard: DashboardData = {
+  role: "owner",
   kpis: [
     { label: "Revenue MTD", value: 143800, change: "+18.4%", tone: "good", href: "/reports/profit-loss" },
     { label: "GST Payable", value: 24240, change: "Current month", tone: "warn", href: "/reports/gst-summary" },
@@ -121,12 +128,29 @@ export const fallbackDashboard: DashboardData = {
     { id: "feed-2", label: "Bill approved for Metro Cloud Hosting", amount: -1180, date: "Today" },
     { id: "feed-3", label: "Expense posted for client travel", amount: -640, date: "20 Apr" }
   ],
+  commandCenter: {
+    cards: [
+      { title: "Open exceptions", value: "3", helper: "Resolve high-priority blockers first.", href: "/exception-queue", status: "Review" },
+      { title: "Pending approvals", value: "6", helper: "Maker-checker queue across finance modules.", href: "/approvals", status: "Control" },
+      { title: "Unmatched bank lines", value: "7", helper: "Statement lines still need matching.", href: "/bank-accounts", status: "Banking" },
+      { title: "Copilot insights", value: "4 open", helper: "Investigate AI-suggested issues and opportunities.", href: "/finance-copilot", status: "AI" }
+    ],
+    alerts: [
+      { label: "Resolve open GST and banking exceptions before close.", href: "/exception-queue", tone: "warning" },
+      { label: "Dashboard fallback data is active because live data could not be loaded.", href: "/audit-trail", tone: "info" }
+    ],
+    priorities: [
+      { title: "Review collections", description: "Follow up overdue invoices and share payment links.", href: "/collections", tone: "warn" },
+      { title: "Review payables", description: "Check vendor dues and upcoming payouts.", href: "/payables", tone: "neutral" },
+      { title: "Validate GST", description: "Open GST summary and parity before filing.", href: "/reports/gst-summary", tone: "neutral" }
+    ]
+  },
   setup: { completed: false, progress_percent: 0, checklist: [] }
 };
 
 export async function buildDashboardData(context: ApiContext): Promise<DashboardData> {
   const setupSnapshot = await loadCompanySetupSnapshot(context);
-  const [{ data: invoices }, { data: bills }, { data: payments }, { data: expenses }, { data: bankAccounts }] = await Promise.all([
+  const [{ data: invoices }, { data: bills }, { data: payments }, { data: expenses }, { data: bankAccounts }, { count: openExceptions }, { count: pendingApprovals }, { count: openInsights }, { count: unmatchedBankLines }] = await Promise.all([
     context.supabase
       .from("invoices")
       .select("id, invoice_number, issue_date, due_date, total, balance_due, tax_total, status")
@@ -146,7 +170,27 @@ export async function buildDashboardData(context: ApiContext): Promise<Dashboard
     context.supabase
       .from("bank_accounts")
       .select("id, name, current_balance")
+      .eq("org_id", context.orgId),
+    context.supabase
+      .from("workflow_exceptions")
+      .select("id", { count: "exact", head: true })
       .eq("org_id", context.orgId)
+      .in("status", ["open", "in_progress"]),
+    context.supabase
+      .from("approval_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", context.orgId)
+      .eq("status", "pending"),
+    context.supabase
+      .from("finance_insights")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", context.orgId)
+      .eq("status", "open"),
+    context.supabase
+      .from("bank_transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", context.orgId)
+      .in("status", ["imported", "ignored"])
   ]);
 
   const invoiceRows = (invoices ?? []) as InvoiceLite[];
@@ -230,6 +274,7 @@ export async function buildDashboardData(context: ApiContext): Promise<Dashboard
   const cashBalance = bankAccountRows.reduce((sum, row) => sum + Number(row.current_balance ?? 0), 0);
 
   return {
+    role: context.role,
     kpis: [
       { label: "Revenue MTD", value: currentMonthRevenue, change: `${activeInvoices.filter((row) => sameMonth(row.issue_date, today)).length} invoices`, tone: currentMonthRevenue > 0 ? "good" : "neutral", href: "/reports/profit-loss" },
       { label: "GST Payable", value: gstOutput - gstInput, change: `Output ${gstOutput.toFixed(0)} / Input ${gstInput.toFixed(0)}`, tone: gstOutput - gstInput > 0 ? "warn" : "good", href: "/reports/gst-summary" },
@@ -242,6 +287,64 @@ export async function buildDashboardData(context: ApiContext): Promise<Dashboard
     cashFlow,
     aging,
     feed,
+    commandCenter: {
+      cards: [
+        {
+          title: "Open exceptions",
+          value: String(openExceptions ?? 0),
+          helper: "Compliance, banking, and workflow blockers requiring attention.",
+          href: "/exception-queue",
+          status: (openExceptions ?? 0) > 0 ? "Needs review" : "Clear"
+        },
+        {
+          title: "Pending approvals",
+          value: String(pendingApprovals ?? 0),
+          helper: "Maker-checker tasks pending approval or rejection.",
+          href: "/approvals",
+          status: (pendingApprovals ?? 0) > 0 ? "Control" : "Clear"
+        },
+        {
+          title: "Unmatched bank lines",
+          value: String(unmatchedBankLines ?? 0),
+          helper: "Statement lines still waiting for reconciliation.",
+          href: "/bank-accounts",
+          status: (unmatchedBankLines ?? 0) > 0 ? "Banking" : "Clear"
+        },
+        {
+          title: "Copilot insights",
+          value: `${openInsights ?? 0} open`,
+          helper: "Data-driven insights surfaced for operator review.",
+          href: "/finance-copilot",
+          status: (openInsights ?? 0) > 0 ? "AI" : "Clear"
+        }
+      ],
+      alerts: [
+        ...(overdueInvoices.length > 0 ? [{ label: `${overdueInvoices.length} overdue invoice${overdueInvoices.length === 1 ? "" : "s"} need follow-up.`, href: "/collections", tone: "warning" as const }] : []),
+        ...((openExceptions ?? 0) > 0 ? [{ label: `${openExceptions} open exception${openExceptions === 1 ? "" : "s"} are blocking smoother operations.`, href: "/exception-queue", tone: "warning" as const }] : []),
+        ...((pendingApprovals ?? 0) > 0 ? [{ label: `${pendingApprovals} approval${pendingApprovals === 1 ? "" : "s"} pending maker-checker action.`, href: "/approvals", tone: "info" as const }] : []),
+        ...((overdueInvoices.length === 0 && (openExceptions ?? 0) === 0) ? [{ label: "No urgent dashboard alerts right now.", href: "/dashboard", tone: "success" as const }] : [])
+      ],
+      priorities: [
+        {
+          title: "Review collections",
+          description: `${overdueInvoices.length} overdue invoice${overdueInvoices.length === 1 ? "" : "s"} and ${receivables.toLocaleString("en-IN")} in receivables remain open.`,
+          href: "/collections",
+          tone: overdueInvoices.length > 0 ? "warn" : "neutral"
+        },
+        {
+          title: "Review payables",
+          description: `${activeBills.filter((row) => Number(row.balance_due ?? 0) > 0).length} open bill${activeBills.filter((row) => Number(row.balance_due ?? 0) > 0).length === 1 ? "" : "s"} require payment planning.`,
+          href: "/payables",
+          tone: payables > 0 ? "neutral" : "good"
+        },
+        {
+          title: "Validate tax and filing readiness",
+          description: `GST payable is ${(gstOutput - gstInput).toLocaleString("en-IN")} for the active month.`,
+          href: "/reports/gst-summary",
+          tone: gstOutput - gstInput > 0 ? "warn" : "neutral"
+        }
+      ]
+    },
     setup: {
       completed: setupSnapshot.setup_completed,
       progress_percent: setupSnapshot.progress_percent,

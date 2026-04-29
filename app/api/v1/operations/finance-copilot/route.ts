@@ -14,10 +14,10 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("finance_insights")
-    .select("id, insight_type, title, summary, severity, status, source_payload, created_at")
+    .select("id, insight_type, title, summary, severity, status, source_payload, created_at, updated_at")
     .eq("org_id", orgId)
     .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(40);
 
   if (error) {
     return fail(500, { code: "FINANCE_COPILOT_OVERVIEW_FAILED", message: error.message });

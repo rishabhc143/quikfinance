@@ -34,6 +34,7 @@ const exceptionSchema = z.object({
   entity_type: z.string().optional().nullable(),
   entity_id: z.string().uuid().optional().nullable(),
   status: z.enum(["open", "in_progress", "resolved", "ignored"]).default("open"),
+  assigned_to: z.string().uuid().optional().nullable(),
   resolution: z.string().optional().nullable()
 });
 
@@ -158,7 +159,7 @@ export const operationalResources: Record<string, OperationalResource> = {
     key: "exception-queue",
     table: "workflow_exceptions",
     title: "Workflow Exceptions",
-    searchableColumns: ["title", "category", "description"],
+    searchableColumns: ["title", "category", "description", "entity_type", "status"],
     sample: { category: "gst", severity: "high", title: "Missing place of supply", description: "Invoice needs GST review before filing." },
     schema: exceptionSchema
   },
