@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatMoney } from "@/lib/utils/currency";
 
 type SettlementsPayload = {
-  metrics: { pending_count: number; settlements_count: number; total_net: number; unprocessed_events: number };
+  metrics: { pending_count: number; settlements_count: number; total_net: number; unprocessed_events: number; open_exceptions: number };
   settlements: Array<{ id: string; settlement_id: string; settlement_date: string; gross_amount: number; fee_amount: number; tax_amount: number; net_amount: number; status: string; created_at: string }>;
   events: Array<{ id: string; provider: string; event_type: string; processed_at: string | null; created_at: string }>;
 };
@@ -34,8 +34,12 @@ export function SettlementsWorkspace() {
   });
 
   const updateSettlement = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const response = await fetch(`/api/v1/workflows/payment-operations/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+    mutationFn: async ({ id, status, note }: { id: string; status: string; note?: string }) => {
+      const response = await fetch("/api/v1/operations/settlements", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status, note })
+      });
       const payload = (await response.json()) as { error?: { message?: string } };
       if (!response.ok) throw new Error(payload.error?.message ?? "Settlement update failed.");
     },
@@ -62,6 +66,10 @@ export function SettlementsWorkspace() {
         <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">Taxes</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{formatMoney(totalTaxes)}</CardContent></Card>
         <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">Total net</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{formatMoney(overview.data?.metrics.total_net ?? 0)}</CardContent></Card>
       </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">Open settlement exceptions</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{overview.data?.metrics.open_exceptions ?? 0}</CardContent></Card>
+        <Card><CardHeader><CardTitle className="text-sm text-muted-foreground">Pending gateway events</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{overview.data?.metrics.unprocessed_events ?? 0}</CardContent></Card>
+      </div>
 
       <Card>
         <CardHeader className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -85,7 +93,28 @@ export function SettlementsWorkspace() {
           {overview.isError ? <div className="rounded-xl border border-destructive/30 p-5 text-sm text-destructive">{(overview.error as Error).message}</div> : null}
           {!overview.isLoading && !overview.isError && settlements.length === 0 ? <div className="rounded-xl border border-dashed p-5 text-sm text-muted-foreground">No settlements are available yet.</div> : null}
           {settlements.map((row) => (
-            <div key={row.id} className="rounded-2xl border p-4"><div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"><div className="space-y-2"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{row.settlement_id}</p><Badge tone={tone(row.status)}>{row.status}</Badge></div><div className="flex flex-wrap gap-4 text-sm text-muted-foreground"><span>{row.settlement_date}</span><span>Gross: {formatMoney(row.gross_amount)}</span><span>Fees: {formatMoney(row.fee_amount)}</span><span>Taxes: {formatMoney(row.tax_amount)}</span><span>Net: {formatMoney(row.net_amount)}</span></div></div><div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => updateSettlement.mutate({ id: row.id, status: "matched" })}>Mark matched</Button><Button onClick={() => updateSettlement.mutate({ id: row.id, status: "posted" })}>Post</Button></div></div></div>
+            <div key={row.id} className="rounded-2xl border p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold">{row.settlement_id}</p>
+                    <Badge tone={tone(row.status)}>{row.status}</Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                    <span>{row.settlement_date}</span>
+                    <span>Gross: {formatMoney(row.gross_amount)}</span>
+                    <span>Fees: {formatMoney(row.fee_amount)}</span>
+                    <span>Taxes: {formatMoney(row.tax_amount)}</span>
+                    <span>Net: {formatMoney(row.net_amount)}</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => updateSettlement.mutate({ id: row.id, status: "matched" })}>Mark matched</Button>
+                  <Button onClick={() => updateSettlement.mutate({ id: row.id, status: "posted" })}>Post</Button>
+                  <Button variant="secondary" onClick={() => updateSettlement.mutate({ id: row.id, status: "exception", note: "Needs bank match or fee review." })}>Flag exception</Button>
+                </div>
+              </div>
+            </div>
           ))}
         </CardContent>
       </Card>

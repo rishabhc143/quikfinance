@@ -55,6 +55,16 @@
 - Reject vendor payment that exceeds bill balance
 - Confirm dashboards update
 
+## Banking And Settlement Controls
+
+- Import bank feed as accountant/admin/owner
+- Reject bank-feed import for restricted roles
+- Match and clear reconciliation lines
+- Confirm clearing a match opens a bank exception
+- Save reconciliation with a non-zero difference and confirm exception creation
+- Mark settlement as exception and confirm settlement exception creation
+- Mark settlement as matched/posted and confirm settlement exception resolution
+
 ## GST
 
 - Open GST summary

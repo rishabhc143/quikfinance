@@ -55,6 +55,7 @@ type ReconciliationPayload = {
     matched_count: number;
     unmatched_count: number;
     suggestion_count: number;
+    open_exceptions: number;
   };
   rows: Row[];
   recent_reconciliations: Array<{
@@ -171,13 +172,14 @@ export function ReconciliationWorkspace({ bankAccountId }: { bankAccountId: stri
         description={`Import statements, auto-match posted receipts and payouts, then close the period for ${data?.bank_account?.name ?? bankAccountId}.`}
       />
 
-      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-7">
         <Card><CardHeader><CardTitle>Statement balance</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{formatMoney(data?.summary.statement_balance ?? 0)}</CardContent></Card>
         <Card><CardHeader><CardTitle>Book balance</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{formatMoney(data?.summary.book_balance ?? 0)}</CardContent></Card>
         <Card><CardHeader><CardTitle>Difference</CardTitle></CardHeader><CardContent className={data && data.summary.difference === 0 ? "text-2xl font-bold text-emerald-600" : "text-2xl font-bold text-amber-600"}>{formatMoney(data?.summary.difference ?? 0)}</CardContent></Card>
         <Card><CardHeader><CardTitle>Matched</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{data?.summary.matched_count ?? 0}</CardContent></Card>
         <Card><CardHeader><CardTitle>Unmatched</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{data?.summary.unmatched_count ?? 0}</CardContent></Card>
         <Card><CardHeader><CardTitle>Suggestions</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{data?.summary.suggestion_count ?? 0}</CardContent></Card>
+        <Card><CardHeader><CardTitle>Exceptions</CardTitle></CardHeader><CardContent className="text-2xl font-bold">{data?.summary.open_exceptions ?? 0}</CardContent></Card>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">

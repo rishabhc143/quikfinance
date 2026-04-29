@@ -1,4 +1,5 @@
 import { canManageBanking, requireApiContext } from "@/lib/api/auth";
+import { resolveWorkflowExceptions, upsertWorkflowException } from "@/lib/compliance/exceptions";
 import { errorMessage, fail, ok } from "@/lib/api/responses";
 import { processImportPayload } from "@/lib/imports/processors";
 
@@ -69,7 +70,7 @@ export async function GET(request: Request) {
     return fail(422, { code: "BANK_ACCOUNT_REQUIRED", message: "Choose a bank account to continue." });
   }
 
-  const [{ data: bankAccount, error: bankError }, { data: transactions, error: transactionError }, { data: reconciliations, error: reconciliationError }] =
+  const [{ data: bankAccount, error: bankError }, { data: transactions, error: transactionError }, { data: reconciliations, error: reconciliationError }, { count: openExceptionCount, error: exceptionsError }] =
     await Promise.all([
       auth.context.supabase
         .from("bank_accounts")
@@ -89,13 +90,19 @@ export async function GET(request: Request) {
         .eq("org_id", auth.context.orgId)
         .eq("bank_account_id", bankAccountId)
         .order("created_at", { ascending: false })
-        .limit(5)
+        .limit(5),
+      auth.context.supabase
+        .from("workflow_exceptions")
+        .select("id", { count: "exact", head: true })
+        .eq("org_id", auth.context.orgId)
+        .in("entity_type", ["bank_transaction", "reconciliation"])
+        .in("status", ["open", "in_progress"])
     ]);
 
-  if (bankError || transactionError || reconciliationError || !bankAccount) {
+  if (bankError || transactionError || reconciliationError || exceptionsError || !bankAccount) {
     return fail(500, {
       code: "RECONCILIATION_LOAD_FAILED",
-      message: bankError?.message ?? transactionError?.message ?? reconciliationError?.message ?? "Bank reconciliation data could not be loaded."
+      message: bankError?.message ?? transactionError?.message ?? reconciliationError?.message ?? exceptionsError?.message ?? "Bank reconciliation data could not be loaded."
     });
   }
 
@@ -190,7 +197,8 @@ export async function GET(request: Request) {
       last_reconciled_at: latestReconciliation?.created_at ?? null,
       matched_count: rows.filter((row) => row.status === "matched" || row.status === "reconciled").length,
       unmatched_count: rows.filter((row) => row.status === "imported").length,
-      suggestion_count: rows.filter((row) => row.status === "imported" && row.suggestions.length > 0).length
+      suggestion_count: rows.filter((row) => row.status === "imported" && row.suggestions.length > 0).length,
+      open_exceptions: openExceptionCount ?? 0
     },
     rows,
     recent_reconciliations: reconciliations ?? []
@@ -235,6 +243,15 @@ export async function POST(request: Request) {
       if (error) {
         return fail(400, { code: "STATUS_UPDATE_FAILED", message: error.message });
       }
+
+      await auth.context.supabase.from("audit_logs").insert({
+        org_id: auth.context.orgId,
+        user_id: auth.context.userId,
+        entity_type: "bank_transaction",
+        entity_id: body.transaction_ids[0] ?? null,
+        action: "status_update",
+        new_values: { transaction_ids: body.transaction_ids, status: body.status }
+      });
 
       return ok(data ?? []);
     }
@@ -294,6 +311,12 @@ export async function POST(request: Request) {
         return fail(400, { code: "MATCH_FAILED", message: updateError?.message ?? "The match could not be saved." });
       }
 
+      await resolveWorkflowExceptions(auth.context, {
+        entityType: "bank_transaction",
+        entityId: body.transaction_id,
+        resolution: "Matched to posted payment"
+      });
+
       await auth.context.supabase.from("audit_logs").insert({
         org_id: auth.context.orgId,
         user_id: auth.context.userId,
@@ -326,6 +349,24 @@ export async function POST(request: Request) {
       if (error || !updated) {
         return fail(400, { code: "CLEAR_MATCH_FAILED", message: error?.message ?? "The match could not be cleared." });
       }
+
+      await upsertWorkflowException(auth.context, {
+        category: "bank",
+        severity: "medium",
+        title: "Bank transaction needs review",
+        description: "A previously matched statement line was cleared and needs review again.",
+        entityType: "bank_transaction",
+        entityId: body.transaction_id
+      });
+
+      await auth.context.supabase.from("audit_logs").insert({
+        org_id: auth.context.orgId,
+        user_id: auth.context.userId,
+        entity_type: "bank_transaction",
+        entity_id: body.transaction_id,
+        action: "clear_match",
+        new_values: { status: "imported" }
+      });
 
       return ok(updated);
     }
@@ -396,6 +437,23 @@ export async function POST(request: Request) {
           difference
         }
       });
+
+      if (difference !== 0) {
+        await upsertWorkflowException(auth.context, {
+          category: "bank",
+          severity: "high",
+          title: "Reconciliation difference requires review",
+          description: `Statement difference of ${difference.toFixed(2)} remains for ${body.statement_start} to ${body.statement_end}.`,
+          entityType: "reconciliation",
+          entityId: reconciliation.id
+        });
+      } else {
+        await resolveWorkflowExceptions(auth.context, {
+          entityType: "reconciliation",
+          entityId: reconciliation.id,
+          resolution: "Difference resolved"
+        });
+      }
 
       return ok({
         ...reconciliation,
