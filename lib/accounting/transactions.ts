@@ -1,4 +1,5 @@
 import type { ApiContext } from "@/lib/api/auth";
+import { buildStockMovementJournalLines, reverseStockMovementJournalLines, type StockMovementJournalLine } from "@/lib/inventory/stock-accounting";
 
 type LineInput = {
   item_id?: string | null;
@@ -390,6 +391,114 @@ async function upsertAccountBalancesFromJournal(context: ApiContext, journalEntr
     const current = Number(account?.balance ?? 0);
     await context.supabase.from("accounts").update({ balance: toMoney(current + delta) }).eq("org_id", context.orgId).eq("id", accountId);
   }
+}
+
+export async function postStockMovementJournal(context: ApiContext, input: {
+  movementId: string;
+  movementType: "receipt" | "issue" | "transfer" | "adjustment" | "dispatch";
+  quantity: number;
+  unitCost: number;
+  itemLabel: string;
+  entryDate: string;
+  reason?: string | null;
+}) {
+  const systemAccounts = await getSystemAccounts(context);
+  const accountIdByCode: Record<StockMovementJournalLine["accountCode"], string | null> = {
+    "1200": systemAccounts["1200"]?.id ?? null,
+    "2000": systemAccounts["2000"]?.id ?? null,
+    "5000": systemAccounts["5000"]?.id ?? null,
+    "6000": systemAccounts["6000"]?.id ?? null
+  };
+
+  const draftLines = buildStockMovementJournalLines({
+    movementType: input.movementType,
+    quantity: input.quantity,
+    unitCost: input.unitCost,
+    itemLabel: input.itemLabel,
+    reason: input.reason
+  });
+
+  if (draftLines.length === 0) {
+    return null;
+  }
+
+  const resolvedLines = draftLines.map((line) => {
+    const accountId = accountIdByCode[line.accountCode];
+    if (!accountId) {
+      throw new Error(`System account ${line.accountCode} is required before posting stock movement journals.`);
+    }
+    return {
+      account_id: accountId,
+      debit: line.debit,
+      credit: line.credit,
+      description: line.description
+    };
+  });
+
+  const journalEntryId = await insertJournal(context, {
+    entry_date: input.entryDate,
+    memo: `Stock movement ${input.itemLabel}`,
+    source_type: "stock_movement",
+    source_id: input.movementId,
+    lines: resolvedLines
+  });
+  await upsertAccountBalancesFromJournal(context, journalEntryId);
+  return journalEntryId;
+}
+
+export async function postStockMovementCancellationJournal(context: ApiContext, input: {
+  movementId: string;
+  movementType: "receipt" | "issue" | "transfer" | "adjustment" | "dispatch";
+  quantity: number;
+  unitCost: number;
+  itemLabel: string;
+  entryDate: string;
+  reason?: string | null;
+}) {
+  const systemAccounts = await getSystemAccounts(context);
+  const accountIdByCode: Record<StockMovementJournalLine["accountCode"], string | null> = {
+    "1200": systemAccounts["1200"]?.id ?? null,
+    "2000": systemAccounts["2000"]?.id ?? null,
+    "5000": systemAccounts["5000"]?.id ?? null,
+    "6000": systemAccounts["6000"]?.id ?? null
+  };
+
+  const reversedDraftLines = reverseStockMovementJournalLines(
+    buildStockMovementJournalLines({
+      movementType: input.movementType,
+      quantity: input.quantity,
+      unitCost: input.unitCost,
+      itemLabel: input.itemLabel,
+      reason: input.reason
+    })
+  );
+
+  if (reversedDraftLines.length === 0) {
+    return null;
+  }
+
+  const resolvedLines = reversedDraftLines.map((line) => {
+    const accountId = accountIdByCode[line.accountCode];
+    if (!accountId) {
+      throw new Error(`System account ${line.accountCode} is required before posting stock movement reversals.`);
+    }
+    return {
+      account_id: accountId,
+      debit: line.debit,
+      credit: line.credit,
+      description: line.description
+    };
+  });
+
+  const journalEntryId = await insertJournal(context, {
+    entry_date: input.entryDate,
+    memo: `Stock movement cancellation ${input.itemLabel}`,
+    source_type: "stock_movement_cancellation",
+    source_id: input.movementId,
+    lines: resolvedLines
+  });
+  await upsertAccountBalancesFromJournal(context, journalEntryId);
+  return journalEntryId;
 }
 
 async function persistInvoiceLines(context: ApiContext, invoiceId: string, lines: DocumentComputation["lines"]) {

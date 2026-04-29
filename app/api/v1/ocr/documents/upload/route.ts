@@ -1,5 +1,6 @@
-import { canWriteData, requireApiContext } from "@/lib/api/auth";
+﻿import { canWriteData, requireApiContext } from "@/lib/api/auth";
 import { errorMessage, fail, ok } from "@/lib/api/responses";
+import { resolveWorkflowExceptions, upsertWorkflowException } from "@/lib/compliance/exceptions";
 import { uploadEntityAttachment, signAttachmentUrls } from "@/lib/storage/attachments";
 
 export const dynamic = "force-dynamic";
@@ -52,37 +53,89 @@ export async function POST(request: Request) {
       return fail(400, { code: "OCR_CREATE_FAILED", message: error?.message ?? "OCR document could not be created." });
     }
 
-    const attachment = await uploadEntityAttachment({
-      orgId: auth.context.orgId,
-      entityType: "ocr_document",
-      entityId: String(document.id),
-      uploadedBy: auth.context.userId,
-      scope: "ocr",
-      file
-    });
+    try {
+      const attachment = await uploadEntityAttachment({
+        orgId: auth.context.orgId,
+        entityType: "ocr_document",
+        entityId: String(document.id),
+        uploadedBy: auth.context.userId,
+        scope: "ocr",
+        file
+      });
 
-    await auth.context.supabase.from("audit_logs").insert({
-      org_id: auth.context.orgId,
-      user_id: auth.context.userId,
-      entity_type: "ocr_document",
-      entity_id: document.id,
-      action: "upload",
-      new_values: {
-        file_name: file.name,
-        size_bytes: file.size,
-        content_type: file.type
-      }
-    });
+      await resolveWorkflowExceptions(auth.context, {
+        entityType: "ocr_document_attachment",
+        entityId: String(document.id),
+        resolution: "OCR source attachment uploaded successfully."
+      });
 
-    return ok(
-      {
-        ...document,
-        attachments: await signAttachmentUrls([attachment])
-      },
-      undefined,
-      { status: 201 }
-    );
+      await auth.context.supabase.from("audit_logs").insert({
+        org_id: auth.context.orgId,
+        user_id: auth.context.userId,
+        entity_type: "ocr_document",
+        entity_id: document.id,
+        action: "upload",
+        new_values: {
+          file_name: file.name,
+          size_bytes: file.size,
+          content_type: file.type
+        }
+      });
+
+      return ok(
+        {
+          ...document,
+          attachments: await signAttachmentUrls([attachment]),
+          upload_warning: null
+        },
+        undefined,
+        { status: 201 }
+      );
+    } catch (attachmentError) {
+      const warning = errorMessage(attachmentError);
+
+      await auth.context.supabase
+        .from("ocr_documents")
+        .update({ status: "upload_failed" })
+        .eq("org_id", auth.context.orgId)
+        .eq("id", document.id);
+
+      await upsertWorkflowException(auth.context, {
+        category: "ocr",
+        severity: "high",
+        title: "OCR source attachment upload failed",
+        description: `${sourceName} was created, but the source file could not be stored. ${warning}`,
+        entityType: "ocr_document_attachment",
+        entityId: String(document.id)
+      });
+
+      await auth.context.supabase.from("audit_logs").insert({
+        org_id: auth.context.orgId,
+        user_id: auth.context.userId,
+        entity_type: "ocr_document",
+        entity_id: document.id,
+        action: "upload_failed",
+        new_values: {
+          file_name: file.name,
+          size_bytes: file.size,
+          content_type: file.type,
+          warning
+        }
+      });
+
+      return ok(
+        {
+          ...document,
+          status: "upload_failed",
+          attachments: [],
+          upload_warning: warning
+        },
+        undefined,
+        { status: 201 }
+      );
+    }
   } catch (error) {
     return fail(500, { code: "OCR_UPLOAD_FAILED", message: errorMessage(error) });
   }
 }
+

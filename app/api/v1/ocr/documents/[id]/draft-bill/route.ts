@@ -1,6 +1,7 @@
-import { requireApiContext } from "@/lib/api/auth";
+﻿import { requireApiContext } from "@/lib/api/auth";
 import { createBillTransaction } from "@/lib/accounting/transactions";
 import { errorMessage, fail, ok } from "@/lib/api/responses";
+import { resolveWorkflowExceptions } from "@/lib/compliance/exceptions";
 import { ensureContact } from "@/lib/imports/processors";
 import { assertPeriodUnlocked } from "@/lib/period-locks";
 
@@ -19,7 +20,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
   try {
     const { data: document, error: documentError } = await auth.context.supabase
       .from("ocr_documents")
-      .select("id, document_type, source_name, extracted_fields, status")
+      .select("id, document_type, source_name, extracted_fields, status, linked_entity_id")
       .eq("org_id", auth.context.orgId)
       .eq("id", params.id)
       .single();
@@ -30,6 +31,19 @@ export async function POST(_request: Request, { params }: { params: { id: string
 
     if (document.document_type !== "bill") {
       return fail(422, { code: "UNSUPPORTED_DOCUMENT_TYPE", message: "Only OCR bills can be converted into vendor bills." });
+    }
+
+    if (document.linked_entity_id) {
+      const { data: existingBill } = await auth.context.supabase
+        .from("bills")
+        .select("*")
+        .eq("org_id", auth.context.orgId)
+        .eq("id", document.linked_entity_id)
+        .maybeSingle();
+
+      if (existingBill) {
+        return ok(existingBill);
+      }
     }
 
     const extracted = (document.extracted_fields ?? {}) as Record<string, unknown>;
@@ -52,18 +66,18 @@ export async function POST(_request: Request, { params }: { params: { id: string
       sequence("BILL");
 
     const { bill } = await createBillTransaction(auth.context, {
-        contact_id: vendorId,
-        bill_number: billNumber,
-        issue_date: issueDate,
-        due_date: typeof extracted.due_date === "string" && extracted.due_date ? extracted.due_date : issueDate,
-        subtotal: Number(extracted.subtotal ?? 0),
-        tax_total: Number(extracted.tax_total ?? 0),
-        total: Number(extracted.total ?? Number(extracted.subtotal ?? 0) + Number(extracted.tax_total ?? 0)),
-        currency: "INR",
-        notes: `Drafted from OCR document ${document.source_name}`,
-        status: "draft",
-        line_items: Array.isArray(extracted.line_items) ? extracted.line_items : undefined
-      });
+      contact_id: vendorId,
+      bill_number: billNumber,
+      issue_date: issueDate,
+      due_date: typeof extracted.due_date === "string" && extracted.due_date ? extracted.due_date : issueDate,
+      subtotal: Number(extracted.subtotal ?? 0),
+      tax_total: Number(extracted.tax_total ?? 0),
+      total: Number(extracted.total ?? Number(extracted.subtotal ?? 0) + Number(extracted.tax_total ?? 0)),
+      currency: "INR",
+      notes: `Drafted from OCR document ${document.source_name}`,
+      status: "draft",
+      line_items: Array.isArray(extracted.line_items) ? extracted.line_items : undefined
+    });
 
     await auth.context.supabase
       .from("ocr_documents")
@@ -73,6 +87,19 @@ export async function POST(_request: Request, { params }: { params: { id: string
       })
       .eq("id", params.id)
       .eq("org_id", auth.context.orgId);
+
+    await Promise.all([
+      resolveWorkflowExceptions(auth.context, {
+        entityType: "ocr_document_review",
+        entityId: params.id,
+        resolution: "OCR document was manually reviewed and converted into a draft bill."
+      }),
+      resolveWorkflowExceptions(auth.context, {
+        entityType: "ocr_document_duplicate",
+        entityId: params.id,
+        resolution: "OCR document was intentionally converted into a draft bill after review."
+      })
+    ]);
 
     await auth.context.supabase.from("audit_logs").insert({
       org_id: auth.context.orgId,
@@ -91,3 +118,4 @@ export async function POST(_request: Request, { params }: { params: { id: string
     return fail(500, { code: "OCR_DRAFT_BILL_FAILED", message: errorMessage(error) });
   }
 }
+

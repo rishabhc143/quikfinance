@@ -1,0 +1,25 @@
+﻿{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": ".test-dist",
+    "rootDir": ".",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "target": "ES2022",
+    "isolatedModules": false,
+    "incremental": false,
+    "plugins": [],
+    "types": ["node"]
+  },
+  "include": [
+    "lib/ocr/parser.ts",
+    "lib/inventory/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".test-dist"
+  ]
+}
+

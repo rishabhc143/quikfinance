@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -41,6 +41,9 @@ export function OcrDraftBuilder() {
   const [parsed, setParsed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [confidenceScore, setConfidenceScore] = useState<number | null>(null);
+  const [uploadWarning, setUploadWarning] = useState<string | null>(null);
 
   const totals = useMemo(() => {
     const previewSubtotal = lines.reduce((sum, line) => sum + line.quantity * line.rate - line.discount, 0);
@@ -73,7 +76,12 @@ export function OcrDraftBuilder() {
       setParsedId(typeof json.data?.id === "string" ? json.data.id : null);
       setSourceName(String(json.data?.source_name ?? (sourceName || selectedFile.name)));
       setAttachments(Array.isArray(json.data?.attachments) ? json.data.attachments : []);
-      toast.success("Source file uploaded.");
+      setUploadWarning(typeof json.data?.upload_warning === "string" && json.data.upload_warning ? json.data.upload_warning : null);
+      if (typeof json.data?.upload_warning === "string" && json.data.upload_warning) {
+        toast.warning("OCR document saved, but the source attachment needs attention.");
+      } else {
+        toast.success("Source file uploaded.");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Source file could not be uploaded.");
     } finally {
@@ -109,6 +117,8 @@ export function OcrDraftBuilder() {
       setSubtotal(Number(extracted.subtotal ?? 0));
       setTaxTotal(Number(extracted.tax_total ?? 0));
       setTotal(Number(extracted.total ?? 0));
+      setConfidenceScore(typeof extracted.confidence_score === "number" ? extracted.confidence_score : Number(extracted.confidence_score ?? 0));
+      setWarnings(Array.isArray(extracted.warnings) ? extracted.warnings.map((warning: unknown) => String(warning)) : []);
 
       const extractedLines = Array.isArray(extracted.line_items)
         ? extracted.line_items
@@ -126,7 +136,11 @@ export function OcrDraftBuilder() {
       }
 
       setParsed(true);
-      toast.success("OCR draft parsed. Review and save.");
+      if (Array.isArray(extracted.warnings) && extracted.warnings.length > 0) {
+        toast.warning("OCR parsed with review warnings.");
+      } else {
+        toast.success("OCR draft parsed. Review and save.");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "OCR parse failed.");
     } finally {
@@ -157,6 +171,8 @@ export function OcrDraftBuilder() {
           subtotal: subtotal || totals.subtotal,
           tax_total: taxTotal || totals.tax,
           total: total || totals.total,
+          confidence_score: confidenceScore,
+          warnings,
           line_items: lines.filter((line) => line.description.trim()).map((line) => ({
             description: line.description,
             quantity: line.quantity,
@@ -214,6 +230,7 @@ export function OcrDraftBuilder() {
                 {uploading ? "Uploading..." : "Upload source file"}
               </Button>
             </div>
+            {uploadWarning ? <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">{uploadWarning}</div> : null}
             {attachments.length > 0 ? (
               <div className="mt-3 space-y-2">
                 {attachments.map((attachment) => (
@@ -238,6 +255,38 @@ export function OcrDraftBuilder() {
               {saving ? "Parsing..." : parsedId ? "Re-parse OCR text" : "Parse OCR text"}
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Parse review</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border p-3 text-sm">
+              <div className="text-muted-foreground">Confidence</div>
+              <div className="text-xl font-semibold">{confidenceScore != null ? `${confidenceScore}%` : "-"}</div>
+            </div>
+            <div className="rounded-lg border p-3 text-sm">
+              <div className="text-muted-foreground">Warnings</div>
+              <div className="text-xl font-semibold">{warnings.length}</div>
+            </div>
+            <div className="rounded-lg border p-3 text-sm">
+              <div className="text-muted-foreground">Attachment status</div>
+              <div className="text-xl font-semibold">{uploadWarning ? "Needs retry" : attachments.length > 0 ? "Attached" : "Manual only"}</div>
+            </div>
+          </div>
+          {warnings.length > 0 ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-3 text-sm text-amber-900">
+              <div className="font-medium">Review warnings</div>
+              <ul className="mt-2 list-disc pl-5">
+                {warnings.map((warning) => <li key={warning}>{warning}</li>)}
+              </ul>
+            </div>
+          ) : (
+            <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">No parse warnings yet.</div>
+          )}
         </CardContent>
       </Card>
 
@@ -275,7 +324,7 @@ export function OcrDraftBuilder() {
             <Input type="number" step="0.01" value={total} onChange={(event) => setTotal(Number(event.target.value || 0))} className="mt-2" />
           </div>
           <div className="flex items-end text-sm text-muted-foreground">
-            {parsed ? "Parsed OCR values loaded. You can override them before saving." : "Upload a source file, paste OCR text, then review the extracted fields before bill creation."}
+            {parsed ? "Parsed OCR values loaded. Override them before saving if required." : "Upload a source file, paste OCR text, then review the extracted fields before bill creation."}
           </div>
         </CardContent>
       </Card>
@@ -329,3 +378,4 @@ export function OcrDraftBuilder() {
     </div>
   );
 }
+

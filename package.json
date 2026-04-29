@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:unit": "tsc -p tsconfig.tests.json && node .test-dist/tests/run-unit-tests.js",
+    "test": "npm run test:unit"
   },
   "dependencies": {
     "@dinero.js/currencies": "^2.0.0-alpha.14",

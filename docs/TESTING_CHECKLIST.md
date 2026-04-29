@@ -25,6 +25,7 @@
 - Create vendor
 - Create item/service
 - Create bank account
+- Verify low-stock items surface correctly when `quantity_on_hand <= reorder_point`
 
 ## Invoices
 
@@ -74,8 +75,34 @@
 ## OCR
 
 - Upload OCR document
+- Verify upload fallback keeps the OCR document even if attachment storage fails
 - Review OCR extracted fields
+- Verify OCR warnings and confidence score are shown after parse
+- Verify duplicate OCR/bill detection opens a review exception
 - Convert OCR document into bill
+- Re-run OCR draft bill conversion and confirm it returns the existing linked bill instead of creating a duplicate
+
+## Inventory And Warehouse Operations
+
+- Create a stock movement with item and warehouse
+- Post a stock receipt and confirm `items.quantity_on_hand` increases
+- Post a stock issue and confirm `items.quantity_on_hand` decreases
+- Post a stock receipt and confirm inventory accounting journal is created
+- Post a stock issue/dispatch and confirm inventory asset is credited and COGS is debited
+- Reject stock issue or dispatch that would drive quantity below zero
+- Cancel a posted stock movement and confirm quantity is reversed
+- Cancel a posted stock movement and confirm reversal journal is created
+- Confirm low-stock exception opens when an item falls below reorder point
+- Confirm low-stock exception resolves when stock is replenished
+- Create and post a goods receipt tied to an item and warehouse
+
+## Migration Center
+
+- Create a migration batch with pasted CSV/JSON payload
+- Confirm preview columns and sample rows are shown
+- Confirm missing required fields mark the batch as needing review or failed
+- Save mapping notes on a batch
+- Mark a reviewed batch as ready/imported/failed
 
 ## Razorpay
 
@@ -97,3 +124,11 @@
 - Open audit logs
 - Verify company update audit entry
 - Verify user invite audit entry
+
+## Automated Regression
+
+- Run `npm run test`
+- Confirm OCR parser tests pass
+- Confirm stock-control tests pass
+- Confirm stock-accounting journal tests pass
+- Confirm import-preview tests pass
