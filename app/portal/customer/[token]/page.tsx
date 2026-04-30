@@ -21,7 +21,7 @@ export default async function CustomerPortalPage({ params }: { params: { token: 
       title={`${payload.customer?.display_name ?? "Customer"} Portal`}
       description={`Welcome to ${payload.organization?.name ?? "QuikFinance"}. Review invoices, download your statement, and pay open balances securely.`}
       actions={[
-        { label: "Download statement CSV", href: `/api/public/customer/${params.token}/statement`, external: true }
+        { label: "Download statement PDF", href: `/api/public/customer/${params.token}/statement/pdf`, external: true }
       ]}
     >
       <div className="grid gap-4 md:grid-cols-3">
@@ -58,7 +58,7 @@ export default async function CustomerPortalPage({ params }: { params: { token: 
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Link href={`/api/public/invoices/${invoice.id}/pdf?token=${params.token}`} target="_blank" className="rounded-full border px-4 py-2 text-sm font-semibold">
-                    Open invoice PDF
+                    Download invoice PDF
                   </Link>
                   {invoice.payment_link?.short_url ? (
                     <Link href={invoice.payment_link.short_url} target="_blank" className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">

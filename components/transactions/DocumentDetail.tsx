@@ -141,6 +141,11 @@ export function DocumentDetail({ kind, id }: { kind: DocumentKind; id: string })
           </div>
           <div className="flex gap-2">
             <Button asChild variant="secondary"><Link href={`/${isInvoice ? "invoices" : isBill ? "bills" : isQuotation ? "quotations" : isSalesOrder ? "sales-orders" : isPurchaseOrder ? "purchase-orders" : isCreditNote ? "credit-notes" : "vendor-credits"}/new?edit=${id}`}>Edit</Link></Button>
+            <Button asChild variant="secondary">
+              <Link href={isInvoice ? `/api/v1/invoices/${id}/pdf` : `/api/v1/documents/${kind}/${id}/pdf`} target="_blank">
+                Download PDF
+              </Link>
+            </Button>
             {isInvoice ? <Button asChild variant="secondary"><Link href={`/invoices/${id}/payment-link`}>Payment link</Link></Button> : null}
           </div>
         </CardHeader>

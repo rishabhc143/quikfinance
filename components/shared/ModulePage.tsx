@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataTable } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { translateModuleMeta, useI18n } from "@/lib/i18n";
+import { downloadPdfExport } from "@/lib/pdf/client";
 import type { ModuleConfig, TableRow, TableValue } from "@/lib/modules";
 import { formatMoney } from "@/lib/utils/currency";
 
@@ -224,9 +226,26 @@ export function ModulePage({ config }: { config: ModuleConfig }) {
   const workflowActions = moduleWorkflowActions(config);
   const emptyCopy = emptyStateCopy(config, { title: meta.title, entityName: meta.entityName });
 
-  const exportPdf = () => {
-    if (typeof window !== "undefined") {
-      window.print();
+  const exportPdf = async () => {
+    try {
+      await downloadPdfExport({
+        title: meta.title,
+        subtitle: meta.description,
+        filenameBase: meta.title,
+        orientation: config.columns.length > 5 ? "landscape" : "portrait",
+        columns: config.columns.map((column) => ({
+          key: column.key,
+          label: column.label,
+          kind: column.kind
+        })),
+        rows,
+        summary: summaryCards.map((item) => ({
+          label: item.label,
+          value: item.value.includes("₹") ? item.value : item.value
+        }))
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "PDF export failed.");
     }
   };
 
@@ -259,7 +278,7 @@ export function ModulePage({ config }: { config: ModuleConfig }) {
                 </Button>
               ))}
             </div>
-            <Button variant="secondary" onClick={exportPdf}>
+            <Button variant="secondary" onClick={() => void exportPdf()}>
               {t("common.exportPdf", "Export PDF")}
             </Button>
           </CardContent>

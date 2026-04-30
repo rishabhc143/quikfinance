@@ -158,7 +158,7 @@ const messages: Record<Locale, MessageTree> = {
       comments: "Comments",
       addComment: "Add comment",
       statement: "Statement",
-      downloadStatement: "Download statement CSV",
+      downloadStatement: "Download statement PDF",
       noComments: "No comments yet.",
       openPdf: "Open invoice PDF",
       payNow: "Pay now"
@@ -336,7 +336,7 @@ const messages: Record<Locale, MessageTree> = {
       comments: "टिप्पणियाँ",
       addComment: "टिप्पणी जोड़ें",
       statement: "स्टेटमेंट",
-      downloadStatement: "स्टेटमेंट CSV डाउनलोड करें",
+      downloadStatement: "स्टेटमेंट PDF डाउनलोड करें",
       noComments: "अभी कोई टिप्पणी नहीं है।",
       openPdf: "चालान PDF खोलें",
       payNow: "अभी भुगतान करें"

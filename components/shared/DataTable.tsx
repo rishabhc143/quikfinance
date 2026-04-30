@@ -3,11 +3,13 @@
 import { ArrowDown, ArrowUp, Download, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { CheckboxCell } from "@/components/shared/Selection";
 import { SearchBar } from "@/components/shared/SearchBar";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { useI18n } from "@/lib/i18n";
+import { downloadPdfExport } from "@/lib/pdf/client";
 import { formatMoney } from "@/lib/utils/currency";
 import type { DataColumn, TableRow, TableValue } from "@/lib/modules";
 import { cn } from "@/lib/utils/cn";
@@ -87,6 +89,25 @@ export function DataTable({
     URL.revokeObjectURL(url);
   };
 
+  const exportPdf = async () => {
+    try {
+      await downloadPdfExport({
+        title,
+        subtitle: `${filteredRows.length} records exported from QuikFinance`,
+        filenameBase: title,
+        orientation: visibleColumns.length > 5 ? "landscape" : "portrait",
+        columns: visibleColumns.map((column) => ({
+          key: column.key,
+          label: column.label,
+          kind: column.kind
+        })),
+        rows: filteredRows
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "PDF export failed.");
+    }
+  };
+
   const toggleSort = (key: string) => {
     if (sortKey === key) {
       setDirection(direction === "asc" ? "desc" : "asc");
@@ -118,7 +139,11 @@ export function DataTable({
               </option>
             ))}
           </select>
-          <Button variant="secondary" onClick={exportCsv}>
+          <Button variant="secondary" onClick={() => void exportPdf()}>
+            <Download className="mr-2 h-4 w-4" />
+            {t("common.pdf", "PDF")}
+          </Button>
+          <Button variant="ghost" onClick={exportCsv}>
             <Download className="mr-2 h-4 w-4" />
             {t("common.csv", "CSV")}
           </Button>

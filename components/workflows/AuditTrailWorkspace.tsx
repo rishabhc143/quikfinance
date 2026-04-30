@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { downloadPdfExport } from "@/lib/pdf/client";
 
 type AuditRecord = {
   id: string;
@@ -114,6 +116,33 @@ export function AuditTrailWorkspace() {
     URL.revokeObjectURL(url);
   };
 
+  const exportPdf = async () => {
+    try {
+      await downloadPdfExport({
+        title: "Audit Trail",
+        subtitle: "Filtered audit activity exported from QuikFinance",
+        filenameBase: "quikfinance-audit-trail",
+        orientation: "landscape",
+        summary: [
+          { label: "Filtered records", value: String(records.length) },
+          { label: "Create events", value: String(createCount) },
+          { label: "Update / delete", value: String(updateCount + deleteCount) },
+          { label: "Active users", value: String(recentActors) }
+        ],
+        columns: [
+          { key: "created_at", label: "Created at", kind: "date" },
+          { key: "action", label: "Action" },
+          { key: "entity_type", label: "Entity" },
+          { key: "entity_id", label: "Entity ID" },
+          { key: "user_id", label: "User ID" }
+        ],
+        rows: records
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "PDF export failed.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -130,7 +159,8 @@ export function AuditTrailWorkspace() {
             <p className="text-sm text-muted-foreground">Filter by action and entity family before reviewing sensitive changes or demoing traceability.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={exportCsv}>Export CSV</Button>
+            <Button variant="secondary" onClick={() => void exportPdf()}>Export PDF</Button>
+            <Button variant="ghost" onClick={exportCsv}>Export CSV</Button>
             <Button asChild variant="secondary"><Link href="/settings/company">Company settings</Link></Button>
             <Button asChild variant="secondary"><Link href="/templates">Templates</Link></Button>
             <Button asChild variant="secondary"><Link href="/transfers">Transfers</Link></Button>
